@@ -1,0 +1,72 @@
+{
+  "manifest_version": 3,
+  "name": "Escudo Transparente",
+  "version": "0.9.1",
+  "description": "Prototipo de alertas explicables para enlaces sospechosos.",
+  "icons": {
+    "16": "icons/escudo-16.png",
+    "32": "icons/escudo-32.png",
+    "48": "icons/escudo-48.png",
+    "128": "icons/escudo-128.png"
+  },
+  "permissions": [
+    "activeTab",
+    "tabs",
+    "declarativeNetRequest"
+  ],
+  "host_permissions": [
+    "http://127.0.0.1:8765/*"
+  ],
+  "background": {
+    "service_worker": "scripts/background.js"
+  },
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_icon": {
+      "16": "icons/escudo-16.png",
+      "32": "icons/escudo-32.png"
+    }
+  },
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "pages/blocked.html",
+        "pages/blocked.css",
+        "pages/blocked.js"
+      ],
+      "matches": [
+        "http://*/*",
+        "https://*/*"
+      ]
+    }
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "http://*/*",
+        "https://*/*"
+      ],
+      "js": [
+        "services/analyzer.js",
+        "scripts/content.js"
+      ],
+      "run_at": "document_start"
+    },
+    {
+      "matches": [
+        "https://mail.google.com/*",
+        "https://outlook.live.com/*",
+        "https://outlook.office.com/*",
+        "https://outlook.office365.com/*"
+      ],
+      "js": [
+        "services/analyzer.js",
+        "scripts/mail.js"
+      ],
+      "run_at": "document_idle",
+      "css": [
+        "scripts/mail.css"
+      ]
+    }
+  ]
+}

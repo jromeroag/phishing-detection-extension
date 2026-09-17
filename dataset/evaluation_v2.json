@@ -1,0 +1,68 @@
+{
+  "source_original": "../upload/urls.csv",
+  "source_additional": "../upload/validacion_nueva.csv",
+  "train_original_count": 235370,
+  "train_additional_count": 94164,
+  "test_additional_count": 20472,
+  "train_classes": {
+    "0": 214877,
+    "1": 114657
+  },
+  "test_classes": {
+    "0": 18019,
+    "1": 2453
+  },
+  "test_hosts": 19299,
+  "test_shared_hosts_with_training": 0,
+  "thresholds": {
+    "0.4": {
+      "tp": 2093,
+      "fp": 4842,
+      "tn": 13177,
+      "fn": 360,
+      "false_positive_rate": 0.26871635495865476,
+      "recall": 0.8532409294741133,
+      "precision": 0.301802451333814
+    },
+    "0.5": {
+      "tp": 1899,
+      "fp": 2579,
+      "tn": 15440,
+      "fn": 554,
+      "false_positive_rate": 0.1431266995948721,
+      "recall": 0.7741540970240521,
+      "precision": 0.4240732469852613
+    },
+    "0.8": {
+      "tp": 1275,
+      "fp": 439,
+      "tn": 17580,
+      "fn": 1178,
+      "false_positive_rate": 0.024363172207114713,
+      "recall": 0.5197717081125153,
+      "precision": 0.7438739789964994
+    }
+  },
+  "by_scheme_at_0_5": {
+    "http": {
+      "tp": 241,
+      "fp": 1788,
+      "tn": 10130,
+      "fn": 17,
+      "false_positive_rate": 0.1500251720087263,
+      "recall": 0.9341085271317829,
+      "precision": 0.11877772301626417
+    },
+    "https": {
+      "tp": 1658,
+      "fp": 791,
+      "tn": 5310,
+      "fn": 537,
+      "false_positive_rate": 0.12965087690542534,
+      "recall": 0.7553530751708428,
+      "precision": 0.6770110249081258
+    }
+  },
+  "brier_score": 0.14021131218534083,
+  "note": "Esta prueba reservada proviene de la segunda fuente; la salida del modelo sigue sin calibrarse para afirmar probabilidades reales."
+}

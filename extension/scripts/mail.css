@@ -1,0 +1,14 @@
+.escudo-mail-panel { box-sizing:border-box; display:flex; gap:18px; margin:20px 0; padding:18px 22px; border:1px solid #ffc8ce; border-radius:14px; background:#fff0f2; color:#272b35; font:16px/1.45 system-ui,Arial,sans-serif; clear:both; }
+.escudo-mail-panel * { box-sizing:border-box; }
+.escudo-mail-icon { display:grid; place-items:center; flex:none; width:68px; height:72px; background:#dc202e; color:white; font:bold 42px/1 system-ui; clip-path:polygon(50% 0,95% 16%,95% 57%,78% 82%,50% 100%,22% 82%,5% 57%,5% 16%); }
+.escudo-mail-content { min-width:0; flex:1; }
+.escudo-mail-content strong { display:block; color:#c51826; font-size:20px; }
+.escudo-mail-content p { margin:5px 0 12px; overflow-wrap:anywhere; }
+.escudo-mail-actions { display:flex; gap:10px; flex-wrap:wrap; }
+.escudo-mail-actions button { cursor:pointer; border-radius:8px; padding:9px 17px; font:600 14px system-ui; }
+.escudo-mail-avoid { border:1px solid #c51826; background:#d3212e; color:white; }
+.escudo-mail-details { border:1px solid #bdc9d9; background:white; color:#24334b; }
+.escudo-mail-info { padding-top:10px; font-size:14px; }
+.escudo-mail-info[hidden] { display:none; }
+.escudo-mail-info ul { margin:4px 0 0; padding-left:22px; }
+@media(max-width:520px) { .escudo-mail-panel { padding:14px; gap:10px; } .escudo-mail-icon { width:44px; height:48px; font-size:28px; } }

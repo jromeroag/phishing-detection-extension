@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" role="img" aria-label="Amarillo">
+  <path d="M41 12a8 8 0 0 1 14 0l39 66a9 9 0 0 1-8 14H10a9 9 0 0 1-8-14z" fill="#f2ad00"/>
+  <path d="M48 36v28" fill="none" stroke="#fff" stroke-width="9" stroke-linecap="round"/>
+  <circle cx="48" cy="75" r="5" fill="#fff"/>
+</svg>
