@@ -59,7 +59,7 @@
     if (data?.model?.probability >= .8) {
       if (reputationAlert) { score += 10; reasons.push("El modelo también detecta rasgos asociados con phishing."); }
       else reasons.push("El modelo aún no está validado para decidir el color por sí solo; su resultado se muestra como referencia.");
-    } else if (data?.model?.probability >= .4) {
+    } else if (data?.model?.probability >= .6) {
       if (reputationAlert) { score += 5; reasons.push("El modelo también detecta algunos rasgos asociados con phishing."); }
       else reasons.push("La predicción aislada del modelo no modifica el puntaje hasta validarlo externamente.");
     }

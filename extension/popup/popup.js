@@ -6,7 +6,7 @@ let pageSignals = null;
 let remoteData = null;
 const presentation = {
   low: { badge: "Verde", title: "Sin señales evidentes", description: "Sin indicios en las reglas y reportes disponibles.", icon: "status-green.svg" },
-  medium: { badge: "Amarillo", title: "Precaución", description: "Revisa el dominio antes de continuar.", icon: "status-yellow.svg" },
+  medium: { badge: "Rojo", title: "Riesgo detectado", description: "Se encontró una señal sospechosa; revisa el dominio antes de continuar.", icon: "status-red.svg" },
   high: { badge: "Rojo", title: "Enlace sospechoso", description: "Evita abrir el enlace e introducir tus datos.", icon: "status-red.svg" },
   unknown: { badge: "Sin análisis", title: "Página no analizable", description: "Introduce una URL HTTP o HTTPS.", icon: "escudo-48.png" }
 };

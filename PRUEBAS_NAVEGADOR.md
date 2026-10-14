@@ -5,8 +5,8 @@ Antes de empezar, guarda una copia de `backend/model.json` y de tu CSV. Abre la 
 | Caso | Pasos | Resultado esperado |
 | --- | --- | --- |
 | Verde | Navega a `https://www.google.com/` y abre el popup | 0 si las fuentes disponibles no dan señales; aviso verde breve en la página. Anota el estado de VirusTotal y del modelo. |
-| URL larga legítima | Navega a una URL larga de una plataforma conocida que uses | La longitud sola no genera amarillo. |
-| Amarillo local | En el popup pega `https://a-b-c-login.example/` | 20/100. Es un dominio reservado: no hay que abrirlo. |
+| URL larga legítima | Navega a una URL larga de una plataforma conocida que uses | La longitud sola no genera una alerta roja. |
+| Rojo preventivo local | En el popup pega `https://a-b-c-login.example/` | Riesgo preventivo. Es un dominio reservado: no hay que abrirlo. |
 | Rojo por enlace local | Crea una página de prueba en `http://127.0.0.1:8000/` con un enlace a `https://usuario@login-verificar.example/` y púlsalo | Se cancela el clic, aparece la alerta roja con el motivo de `@`, sin opción de continuar; **Volver** mantiene la página origen. No se visita el dominio de prueba. |
 | Regreso de página roja | Con historial previo, navega a una URL que efectivamente dé resultado rojo según las fuentes disponibles y pulsa **Volver a un sitio seguro** | Regresa a la página anterior; esa página anterior no queda validada automáticamente. |
 | VirusTotal sin informe | Analiza una URL que no tenga reporte | Muestra «sin informe»; nunca se convierte en rojo por la ausencia de informe. |

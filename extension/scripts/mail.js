@@ -17,10 +17,9 @@ function setBadge(link, href, result, remoteStatus) {
   if (result.level !== "medium" && result.level !== "high") { updateMessagePanel(link); return; }
   const badge = document.createElement("span");
   badge.className = "escudo-mail-label";
-  badge.textContent = result.level === "high" ? " ⛔ Enlace sospechoso" : " ⚠ Revisar enlace";
+  badge.textContent = result.level === "high" ? " ⛔ Enlace sospechoso" : " ⛔ Riesgo detectado: revisar enlace";
   badge.title = result.reasons.join(" ") + (remoteStatus ? " Fuentes: " + remoteStatus : " Análisis local de URL.");
-  badge.style.cssText = "display:inline-block;margin-left:4px;padding:2px 5px;border-radius:4px;background:" +
-    (result.level === "high" ? "#ffe4e5;color:#9a1620" : "#fff3d5;color:#755000") + ";font:12px system-ui";
+  badge.style.cssText = "display:inline-block;margin-left:4px;padding:2px 5px;border-radius:4px;background:#ffe4e5;color:#9a1620;font:12px system-ui";
   link.after(badge);
   updateMessagePanel(link);
 }

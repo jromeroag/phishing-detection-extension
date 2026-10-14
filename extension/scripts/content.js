@@ -6,55 +6,91 @@ let lastWarnedScore = -1;
 let inspected = false;
 let remoteFinished = false;
 let notificationShown = false;
+let analyzedURL = "";
+let analysisGeneration = 0;
 if (window === window.top) {
-  const currentResult = EscudoAnalyzer.analyzeURL(location.href);
+  analyzeCurrentPage();
+  // popstate/hashchange cubren Atrás, Adelante y cambios de fragmento. El
+  // comprobador también detecta history.pushState/replaceState usado por SPA,
+  // que no genera esos eventos en el mundo aislado de una extensión.
+  window.addEventListener("popstate", checkForNavigation);
+  window.addEventListener("hashchange", checkForNavigation);
+  setInterval(checkForNavigation, 500);
+}
+
+function checkForNavigation() {
+  if (location.href !== analyzedURL) analyzeCurrentPage();
+}
+
+function analyzeCurrentPage() {
+  const requestedURL = location.href;
+  if (requestedURL === analyzedURL) return;
+  analyzedURL = requestedURL;
+  const generation = ++analysisGeneration;
+  latestPageResult = { score: 0, reasons: [] };
+  remoteResult = { score: 0, reasons: [] };
+  lastWarnedScore = -1;
+  inspected = false;
+  remoteFinished = false;
+  notificationShown = false;
+  document.getElementById("escudo-warning-root")?.remove();
+
+  const stillCurrent = () => generation === analysisGeneration &&
+    requestedURL === analyzedURL && location.href === requestedURL;
+  const currentResult = EscudoAnalyzer.analyzeURL(requestedURL);
   if (currentResult.level === "high") {
-    const displayOnArrival = () => showWarning(location.href, currentResult, true);
+    const displayOnArrival = () => {
+      if (stillCurrent()) showWarning(requestedURL, currentResult, true);
+    };
     if (document.documentElement) displayOnArrival();
     else {
       const observer = new MutationObserver(() => {
+        if (!stillCurrent()) { observer.disconnect(); return; }
         if (document.documentElement) { observer.disconnect(); displayOnArrival(); }
       });
       observer.observe(document, { childList: true });
     }
   }
   const inspect = () => {
+    if (!stillCurrent()) return;
     latestPageResult = inspectPage();
     inspected = true;
-    updatePageAlert();
+    updatePageAlert(requestedURL, generation);
   };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", inspect, { once: true });
   else inspect();
-  const initialURL = location.href;
-  chrome.runtime.sendMessage({ type: "REMOTE_LOOKUP", url: initialURL }, (data) => {
-    if (location.href !== initialURL) return;
+  chrome.runtime.sendMessage({ type: "REMOTE_LOOKUP", url: requestedURL }, (data) => {
+    // Una respuesta de una URL anterior nunca actualiza ni alerta la página
+    // actual, aunque termine después que la consulta más reciente.
+    if (!stillCurrent()) return;
     if (!chrome.runtime.lastError && data && !data.error) remoteResult = EscudoAnalyzer.scoreRemote(data);
     remoteFinished = true;
-    updatePageAlert();
+    updatePageAlert(requestedURL, generation);
   });
 }
 
-function updatePageAlert() {
-  if (!inspected) return;
-  const local = EscudoAnalyzer.combine(EscudoAnalyzer.analyzeURL(location.href), latestPageResult);
+function updatePageAlert(expectedURL = analyzedURL, expectedGeneration = analysisGeneration) {
+  if (!inspected || expectedGeneration !== analysisGeneration ||
+      expectedURL !== analyzedURL || location.href !== expectedURL) return;
+  const local = EscudoAnalyzer.combine(EscudoAnalyzer.analyzeURL(expectedURL), latestPageResult);
   const final = EscudoAnalyzer.combine(local, remoteResult);
   const unsafePasswordForm = latestPageResult.reasons.some((reason) => reason.includes("HTTP sin cifrado"));
   if (final.level === "high" && (local.level === "high" || !remoteResult.needsCorroboration)) {
-    if (final.score > lastWarnedScore) showWarning(location.href, final, true);
+    if (final.score > lastWarnedScore) showWarning(expectedURL, final, true);
     return;
   }
   if (unsafePasswordForm && final.score > lastWarnedScore) {
-    showWarning(location.href, final, true);
+    showWarning(expectedURL, final, true);
     return;
   }
   // Esperar ambas fuentes evita mostrar verde justo antes de recibir un resultado rojo.
   if (!remoteFinished || notificationShown || lastWarnedScore >= 0) return;
   if (final.level === "medium" && final.reasons.length) {
     notificationShown = true;
-    showWarning(location.href, final, true);
+    showWarning(expectedURL, final, true);
   } else if (final.level === "low") {
     notificationShown = true;
-    showWarning(location.href, final, true);
+    showWarning(expectedURL, final, true);
   }
 }
 
@@ -81,7 +117,8 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 });
 
 // Al hacer clic en un enlace rojo, detiene el clic antes de navegar.
-// Los indicios amarillos se consultan en el popup sin interrumpir la página.
+// Los indicios preventivos se muestran en rojo, pero solo el riesgo alto
+// detiene el clic. Así una señal débil no bloquea por sí sola.
 document.addEventListener("click", (event) => {
   const link = event.target instanceof Element ? event.target.closest("a[href]") : null;
   if (!link || event.defaultPrevented || event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey || link.hasAttribute("download")) return;
@@ -102,13 +139,15 @@ function showWarning(destination, result, onArrival) {
   host.style.cssText = "position:fixed!important;inset:0!important;z-index:2147483647!important;pointer-events:" + (isLow ? "none" : "auto") + "!important";
   const shadow = host.attachShadow({ mode: "closed" });
   const style = document.createElement("style");
-  style.textContent = ":host{all:initial} .shade{position:fixed;inset:0;background:#101b2acc;display:grid;place-items:center;padding:20px;font:16px/1.5 system-ui,Arial,sans-serif}.box{width:min(100%,480px);background:white;color:#192437;border-radius:18px;padding:26px;box-shadow:0 20px 70px #0006}.heading{display:flex;align-items:center;gap:16px}.status-icon{width:72px;height:72px;flex:none}.box h2{color:#b42828;margin:0 0 8px}.box.medium h2{color:#a56b00}.heading p{margin:0}.address{overflow-wrap:anywhere;background:#f3f5f7;padding:10px;border-radius:8px}button{cursor:pointer;border:0;border-radius:8px;padding:11px 15px;font:inherit}#back{background:#183960;color:#fff}#continue{background:#fff1d0;color:#5b4200}.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px}.small{font-size:12px;color:#556}";
-  style.textContent += ".shade.low{background:transparent;display:block;pointer-events:none}.shade.high{background:#b61b24}.box.low{position:fixed;right:18px;top:18px;width:min(350px,calc(100vw - 76px));padding:16px;pointer-events:auto;border:1px solid #a5ddba}.box.low .status-icon{width:48px;height:48px}.box.low h2{color:#087a45}.box.high{box-shadow:none}.high #back{background:#b61b24}.low #continue{background:#13844b;color:white}.close{float:right;background:transparent;padding:0 5px}";
+  style.textContent = ":host{all:initial} .shade{position:fixed;inset:0;background:#101b2acc;display:grid;place-items:center;padding:20px;font:16px/1.5 system-ui,Arial,sans-serif}.box{width:min(100%,480px);background:white;color:#192437;border-radius:18px;padding:26px;box-shadow:0 20px 70px #0006}.heading{display:flex;align-items:center;gap:16px}.status-icon{width:72px;height:72px;flex:none}.box h2{color:#b42828;margin:0 0 8px}.heading p{margin:0}.address{overflow-wrap:anywhere;background:#f3f5f7;padding:10px;border-radius:8px}button{cursor:pointer;border:0;border-radius:8px;padding:11px 15px;font:inherit}#back{background:#183960;color:#fff}#continue{background:#fff;color:#9f1725;border:1px solid #c92a38}.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px}.small{font-size:12px;color:#556}";
+  style.textContent += ".shade.low{background:transparent;display:block;pointer-events:none}.shade.medium{background:#7d1018cc}.shade.high{background:#b61b24}.box.low{position:fixed;right:18px;top:18px;width:min(350px,calc(100vw - 76px));padding:16px;pointer-events:auto;border:1px solid #a5ddba}.box.low .status-icon{width:48px;height:48px}.box.low h2{color:#087a45}.box.medium{background:#fff5f6;border:2px solid #d52a39}.box.medium #back{background:#b61b24;color:#fff}.box.medium #continue{background:#fff;color:#9f1725;border:1px solid #c92a38;font-weight:700}.box.high{box-shadow:none}.high #back{background:#b61b24}.low #continue{background:#13844b;color:white}.risk-label{display:inline-block;margin:0 0 5px;padding:3px 10px;border-radius:999px;font-size:13px;font-weight:700}.risk-label.low{background:#d9f5e2;color:#087a45}.risk-label.medium,.risk-label.high{background:#ffd7dc;color:#a61a2a}.close{float:right;background:transparent;padding:0 5px}";
   const shade = document.createElement("div"); shade.className = "shade";
   const box = document.createElement("div"); box.className = "box " + result.level; box.setAttribute("role", "alertdialog"); box.setAttribute("aria-modal", "true");
   if (isLow) box.setAttribute("aria-modal", "false");
-  const heading = document.createElement("h2"); heading.textContent = result.level === "high" ? (onArrival ? "Sitio con riesgo alto" : "Enlace de riesgo alto bloqueado") : result.level === "medium" ? "Sitio con riesgo medio" : "Sin señales evidentes";
-  const explanation = document.createElement("p"); explanation.textContent = result.level === "high" ? "Se observaron las siguientes señales en el análisis disponible:" : result.level === "medium" ? "Revisa estas señales antes de continuar:" : "No se observaron señales en las fuentes disponibles. Esto no garantiza que la página sea segura.";
+  const riskLabel = document.createElement("span"); riskLabel.className = "risk-label " + result.level;
+  riskLabel.textContent = result.level === "low" ? "Verde" : "Rojo";
+  const heading = document.createElement("h2"); heading.textContent = result.level === "high" ? (onArrival ? "Sitio con riesgo alto" : "Enlace de riesgo alto bloqueado") : result.level === "medium" ? "Riesgo detectado" : "Sin señales evidentes";
+  const explanation = document.createElement("p"); explanation.textContent = result.level === "high" ? "Se encontraron evidencias suficientes para aplicar un bloqueo preventivo:" : result.level === "medium" ? "Se encontró una señal sospechosa. Revisa la información antes de decidir si continúas:" : "No se observaron señales en las fuentes disponibles. Esto no garantiza que la página sea segura.";
   // SVG dentro de la alerta: permanece visible aunque la página limite imágenes externas.
   const ns = "http://www.w3.org/2000/svg";
   const statusIcon = document.createElementNS(ns, "svg");
@@ -116,8 +155,8 @@ function showWarning(destination, result, onArrival) {
   statusIcon.setAttribute("viewBox", "0 0 96 96");
   statusIcon.setAttribute("aria-hidden", "true");
   const emblem = document.createElementNS(ns, "path");
-  emblem.setAttribute("d", result.level === "high" ? "M29 4h38l25 25v38L67 92H29L4 67V29z" : result.level === "medium" ? "M41 12a8 8 0 0 1 14 0l39 66a9 9 0 0 1-8 14H10a9 9 0 0 1-8-14z" : "M48 2a46 46 0 1 1 0 92a46 46 0 0 1 0-92z");
-  emblem.setAttribute("fill", result.level === "high" ? "#cf2032" : result.level === "medium" ? "#f2ad00" : "#13844b");
+  emblem.setAttribute("d", result.level === "low" ? "M48 2a46 46 0 1 1 0 92a46 46 0 0 1 0-92z" : "M29 4h38l25 25v38L67 92H29L4 67V29z");
+  emblem.setAttribute("fill", result.level === "low" ? "#13844b" : "#cf2032");
   const mark = document.createElementNS(ns, "path");
   mark.setAttribute("d", isLow ? "M23 48l16 16 34-36" : result.level === "high" ? "M48 26v34" : "M48 36v28");
   mark.setAttribute("fill", "none");
@@ -130,7 +169,7 @@ function showWarning(destination, result, onArrival) {
   statusIcon.append(emblem, mark);
   if (!isLow) statusIcon.append(dot);
   const banner = document.createElement("div"); banner.className = "heading";
-  const wording = document.createElement("div"); wording.append(heading, explanation); banner.append(statusIcon, wording);
+  const wording = document.createElement("div"); wording.append(riskLabel, heading, explanation); banner.append(statusIcon, wording);
   const address = document.createElement("p"); address.className = "address"; address.textContent = destination;
   const list = document.createElement("ul"); result.reasons.forEach((reason) => { const li = document.createElement("li"); li.textContent = reason; list.append(li); });
   const actions = document.createElement("div"); actions.className = "actions";
@@ -141,7 +180,7 @@ function showWarning(destination, result, onArrival) {
   });
   if (!isLow) actions.append(back);
   const proceed = document.createElement("button"); proceed.id = "continue";
-  proceed.textContent = isLow ? "Entendido, continuar" : "Continuar";
+  proceed.textContent = isLow ? "Entendido, continuar" : "Continuar bajo mi responsabilidad";
   proceed.addEventListener("click", () => { if (onArrival) host.remove(); else window.location.assign(destination); });
   if (result.level !== "high") actions.append(proceed);
   const limitation = document.createElement("p"); limitation.className = "small"; limitation.textContent = "Las señales son orientativas; comprueba el dominio antes de introducir datos.";

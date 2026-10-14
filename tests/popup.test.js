@@ -54,4 +54,12 @@ element('candidate').value = 'https://example.com/';
 element('check-form').listeners.submit({ preventDefault() {} });
 assert.equal(element('badge').textContent, 'Verde');
 assert.match(element('symbol').src, /status-green\.svg$/);
+chrome.runtime.sendMessage = (_message, callback) => callback({
+  model: null, reputation: { status: 'found', malicious: 1, suspicious: 0, total: 70 }
+});
+element('candidate').value = 'https://example.com/revisar';
+element('check-form').listeners.submit({ preventDefault() {} });
+assert.equal(element('badge').textContent, 'Rojo');
+assert.match(element('status').textContent, /Riesgo detectado/);
+assert.match(element('symbol').src, /status-red\.svg$/);
 console.log('Popup: consulta automática y resultado remoto correctos');
