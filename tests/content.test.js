@@ -124,6 +124,10 @@ const red = createHarness('https://usuario@login-verificar.example/', {
 assert.match(red.headings().at(-1), /Sitio con riesgo alto/);
 const redActions = red.created.find((element) => element.className === 'actions');
 assert.equal(redActions.children.some((element) => element.id === 'continue'), false);
+const recommendations = red.created.find((element) => element.className === 'recommendations');
+assert.ok(recommendations);
+assert.equal(recommendations.children[0].textContent, 'Recomendaciones');
+assert.equal(recommendations.children[1].children.length, 3);
 red.created.find((element) => element.id === 'back').listeners.click();
 assert.equal(red.wentBack(), 1);
 

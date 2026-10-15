@@ -139,7 +139,7 @@ function showWarning(destination, result, onArrival) {
   host.style.cssText = "position:fixed!important;inset:0!important;z-index:2147483647!important;pointer-events:" + (isLow ? "none" : "auto") + "!important";
   const shadow = host.attachShadow({ mode: "closed" });
   const style = document.createElement("style");
-  style.textContent = ":host{all:initial} .shade{position:fixed;inset:0;background:#101b2acc;display:grid;place-items:center;padding:20px;font:16px/1.5 system-ui,Arial,sans-serif}.box{width:min(100%,480px);background:white;color:#192437;border-radius:18px;padding:26px;box-shadow:0 20px 70px #0006}.heading{display:flex;align-items:center;gap:16px}.status-icon{width:72px;height:72px;flex:none}.box h2{color:#b42828;margin:0 0 8px}.heading p{margin:0}.address{overflow-wrap:anywhere;background:#f3f5f7;padding:10px;border-radius:8px}button{cursor:pointer;border:0;border-radius:8px;padding:11px 15px;font:inherit}#back{background:#183960;color:#fff}#continue{background:#fff;color:#9f1725;border:1px solid #c92a38}.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px}.small{font-size:12px;color:#556}";
+  style.textContent = ":host{all:initial} .shade{position:fixed;inset:0;background:#101b2acc;display:grid;place-items:center;padding:20px;font:16px/1.5 system-ui,Arial,sans-serif}.box{width:min(100%,480px);background:white;color:#192437;border-radius:18px;padding:26px;box-shadow:0 20px 70px #0006}.heading{display:flex;align-items:center;gap:16px}.status-icon{width:72px;height:72px;flex:none}.box h2{color:#b42828;margin:0 0 8px}.box h3{font-size:16px;margin:16px 0 6px}.heading p{margin:0}.address{overflow-wrap:anywhere;background:#f3f5f7;padding:10px;border-radius:8px}.recommendations{background:#fff3f3;border-left:4px solid #cf2032;border-radius:8px;padding:10px 14px}.recommendations ul{margin:6px 0;padding-left:20px}button{cursor:pointer;border:0;border-radius:8px;padding:11px 15px;font:inherit}#back{background:#183960;color:#fff}#continue{background:#fff;color:#9f1725;border:1px solid #c92a38}.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px}.small{font-size:12px;color:#556}";
   style.textContent += ".shade.low{background:transparent;display:block;pointer-events:none}.shade.medium{background:#7d1018cc}.shade.high{background:#b61b24}.box.low{position:fixed;right:18px;top:18px;width:min(350px,calc(100vw - 76px));padding:16px;pointer-events:auto;border:1px solid #a5ddba}.box.low .status-icon{width:48px;height:48px}.box.low h2{color:#087a45}.box.medium{background:#fff5f6;border:2px solid #d52a39}.box.medium #back{background:#b61b24;color:#fff}.box.medium #continue{background:#fff;color:#9f1725;border:1px solid #c92a38;font-weight:700}.box.high{box-shadow:none}.high #back{background:#b61b24}.low #continue{background:#13844b;color:white}.risk-label{display:inline-block;margin:0 0 5px;padding:3px 10px;border-radius:999px;font-size:13px;font-weight:700}.risk-label.low{background:#d9f5e2;color:#087a45}.risk-label.medium,.risk-label.high{background:#ffd7dc;color:#a61a2a}.close{float:right;background:transparent;padding:0 5px}";
   const shade = document.createElement("div"); shade.className = "shade";
   const box = document.createElement("div"); box.className = "box " + result.level; box.setAttribute("role", "alertdialog"); box.setAttribute("aria-modal", "true");
@@ -172,6 +172,15 @@ function showWarning(destination, result, onArrival) {
   const wording = document.createElement("div"); wording.append(riskLabel, heading, explanation); banner.append(statusIcon, wording);
   const address = document.createElement("p"); address.className = "address"; address.textContent = destination;
   const list = document.createElement("ul"); result.reasons.forEach((reason) => { const li = document.createElement("li"); li.textContent = reason; list.append(li); });
+  const recommendations = document.createElement("section"); recommendations.className = "recommendations";
+  const recommendationsTitle = document.createElement("h3"); recommendationsTitle.textContent = "Recomendaciones";
+  const recommendationsList = document.createElement("ul");
+  [
+    "No introduzcas contraseñas, códigos ni datos bancarios.",
+    "Sal de esta página y entra al servicio escribiendo su dirección oficial.",
+    "Si ya compartiste datos, cambia tu contraseña y contacta a la entidad."
+  ].forEach((recommendation) => { const li = document.createElement("li"); li.textContent = recommendation; recommendationsList.append(li); });
+  recommendations.append(recommendationsTitle, recommendationsList);
   const actions = document.createElement("div"); actions.className = "actions";
   const back = document.createElement("button"); back.id = "back"; back.textContent = onArrival ? "Volver a un sitio seguro" : "Volver"; back.addEventListener("click", () => {
     if (!onArrival) { host.remove(); return; }
@@ -189,6 +198,7 @@ function showWarning(destination, result, onArrival) {
   }
   box.append(banner);
   if (!isLow) box.append(address, list);
+  if (result.level === "high") box.append(recommendations);
   box.append(actions);
   if (!isLow) box.append(limitation);
   shade.className = "shade " + result.level; shade.append(box); shadow.append(style, shade);

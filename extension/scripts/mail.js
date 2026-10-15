@@ -47,6 +47,15 @@ function updateMessagePanel(link) {
   const content = document.createElement("div"); content.className = "escudo-mail-content";
   const title = document.createElement("strong"); title.textContent = "¡Alerta de enlace sospechoso!";
   const description = document.createElement("p"); description.textContent = "El análisis detectó señales de riesgo en un enlace de este mensaje. Revisa el destino antes de abrirlo.";
+  const recommendations = document.createElement("section"); recommendations.className = "escudo-mail-recommendations";
+  const recommendationsTitle = document.createElement("strong"); recommendationsTitle.textContent = "Recomendaciones";
+  const recommendationsList = document.createElement("ul");
+  [
+    "No introduzcas contraseñas, códigos ni datos bancarios.",
+    "Comprueba el dominio y entra al servicio desde su dirección oficial.",
+    "Si ya compartiste datos, cambia tu contraseña y contacta a la entidad."
+  ].forEach((recommendation) => { const item = document.createElement("li"); item.textContent = recommendation; recommendationsList.append(item); });
+  recommendations.append(recommendationsTitle, recommendationsList);
   const actions = document.createElement("div"); actions.className = "escudo-mail-actions";
   const avoid = document.createElement("button"); avoid.type = "button"; avoid.className = "escudo-mail-avoid"; avoid.textContent = "No abrir";
   avoid.addEventListener("click", () => { description.textContent = "No se abrió el enlace. Los enlaces marcados en rojo en este correo quedan detenidos al hacer clic."; });
@@ -59,7 +68,7 @@ function updateMessagePanel(link) {
   }
   info.append(address, list);
   details.addEventListener("click", () => { info.hidden = !info.hidden; details.textContent = info.hidden ? "Ver detalles" : "Ocultar detalles"; });
-  actions.append(avoid, details); content.append(title, description, actions, info); panel.append(icon, content);
+  actions.append(avoid, details); content.append(title, description, recommendations, actions, info); panel.append(icon, content);
   body.append(panel);
 }
 

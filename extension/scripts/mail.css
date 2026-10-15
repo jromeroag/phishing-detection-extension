@@ -4,6 +4,9 @@
 .escudo-mail-content { min-width:0; flex:1; }
 .escudo-mail-content strong { display:block; color:#c51826; font-size:20px; }
 .escudo-mail-content p { margin:5px 0 12px; overflow-wrap:anywhere; }
+.escudo-mail-recommendations { margin:12px 0; padding:10px 14px; border-left:4px solid #dc202e; border-radius:8px; background:#fff; }
+.escudo-mail-recommendations strong { color:#272b35; font-size:15px; }
+.escudo-mail-recommendations ul { margin:6px 0 0; padding-left:20px; }
 .escudo-mail-actions { display:flex; gap:10px; flex-wrap:wrap; }
 .escudo-mail-actions button { cursor:pointer; border-radius:8px; padding:9px 17px; font:600 14px system-ui; }
 .escudo-mail-avoid { border:1px solid #c51826; background:#d3212e; color:white; }
