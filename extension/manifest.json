@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Escudo Transparente",
-  "version": "0.9.1",
+  "version": "9.3.2",
   "description": "Prototipo de alertas explicables para enlaces sospechosos.",
   "icons": {
     "16": "icons/escudo-16.png",

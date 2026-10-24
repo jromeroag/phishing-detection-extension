@@ -10,6 +10,28 @@ const presentation = {
   high: { badge: "Rojo", title: "Enlace sospechoso", description: "Evita abrir el enlace e introducir tus datos.", icon: "status-red.svg" },
   unknown: { badge: "Sin análisis", title: "Página no analizable", description: "Introduce una URL HTTP o HTTPS.", icon: "escudo-48.png" }
 };
+const sourceNames = { url: "Reglas de URL", page: "Inspección de la página", model: "Modelo", virustotal: "VirusTotal", unknown: "No disponible" };
+function evidenceCard(item) {
+  const card = document.createElement("article");
+  card.className = "evidence-card " + (item.severity || "info");
+  const source = sourceNames[item.source] || item.source || "No especificada";
+  const observed = item.observedValue !== null && item.observedValue !== undefined ? "\nValor observado: " + item.observedValue : "";
+  const contribution = item.contributesToDecision
+    ? "Aporte al resultado: " + (item.scoreContribution > 0 ? "+" : "") + item.scoreContribution + " puntos"
+    : "Aporte al resultado: informativa (0 puntos)";
+  card.textContent = item.title + "\n" + item.description + "\nFuente: " + source + observed + "\n" + contribution;
+  return card;
+}
+function compactEvidenceCard(item) {
+  const card = document.createElement("article");
+  card.className = "compact-evidence " + (item.severity || "info");
+  const source = sourceNames[item.source] || item.source || "No especificada";
+  const contribution = item.contributesToDecision
+    ? (item.scoreContribution > 0 ? "+" : "") + item.scoreContribution + " puntos"
+    : "Informativa · 0 puntos";
+  card.textContent = item.title + "\n" + item.description + "\n" + source + " · " + contribution;
+  return card;
+}
 function sourceDescription() {
   if (!remoteData) return "Consultando fuentes disponibles…";
   const reputation = remoteData.reputation;
@@ -43,7 +65,15 @@ function render() {
   $("source").textContent = "URL" + (pageSignals?.score ? ", formularios" : "") + (remoteData?.model ? ", modelo" : "") + (remoteData?.reputation?.status === "found" ? ", VirusTotal" : "");
   $("source-status").textContent = sourceDescription();
   $("remote-status").textContent = sourceDescription();
-  $("reasons").replaceChildren(...result.reasons.map((reason) => { const li = document.createElement("li"); li.textContent = reason; return li; }));
+  const evidence = result.evidence || result.reasons.map((description) => ({
+    title: "Señal observada", description, source: "unknown", severity: "info",
+    scoreContribution: 0, contributesToDecision: false
+  }));
+  const primaryEvidence = [...evidence].sort((a, b) =>
+    Number(b.contributesToDecision) - Number(a.contributesToDecision) ||
+    (b.scoreContribution || 0) - (a.scoreContribution || 0)).slice(0, 2);
+  $("overview-evidence").replaceChildren(...primaryEvidence.map(compactEvidenceCard));
+  $("reasons").replaceChildren(...evidence.map(evidenceCard));
 }
 function analyzeAutomatically() {
   const requested = selectedURL;

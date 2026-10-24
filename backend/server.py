@@ -22,8 +22,14 @@ DAILY = {"date": "", "count": 0}
 LOCK = threading.Lock()
 
 
+def reputation_result(status, **details):
+    """Respuesta trazable sin incluir la URL ni la credencial consultada."""
+    return {"status": status, "source": "virustotal", "scope": "scheme_host_port_path",
+            "query_parameters_shared": False, **details}
+
+
 def reputation(raw, key):
-    if not key: return {"status": "not_configured"}
+    if not key: return reputation_result("not_configured")
     parsed = urlsplit(raw)
     # Una consulta automática no comparte parámetros, fragmentos ni credenciales.
     clean = parsed.scheme + "://" + parsed.hostname + ((':' + str(parsed.port)) if parsed.port else '') + (parsed.path or '/')
@@ -38,14 +44,14 @@ def reputation(raw, key):
         waiting.wait(5.5)
         with LOCK:
             cached = REPORT_CACHE.get(clean)
-            return cached[1] if cached else {"status": "unavailable"}
+            return cached[1] if cached else reputation_result("unavailable")
     with LOCK:
         while REQUEST_TIMES and REQUEST_TIMES[0] <= now - 60: REQUEST_TIMES.popleft()
         today = datetime.now(timezone.utc).date().isoformat()
         if DAILY["date"] != today: DAILY.update(date=today, count=0)
         if len(REQUEST_TIMES) >= 4 or DAILY["count"] >= 500:
             INFLIGHT.pop(clean).set()
-            return {"status": "rate_limited"}
+            return reputation_result("rate_limited")
         REQUEST_TIMES.append(now)
         DAILY["count"] += 1
     url_id = base64.urlsafe_b64encode(clean.encode()).decode().rstrip("=")
@@ -54,12 +60,12 @@ def reputation(raw, key):
     try:
         with urlopen(request, timeout=4) as response:
             stats = json.load(response)["data"]["attributes"]["last_analysis_stats"]
-        result = {"status": "found", "malicious": stats.get("malicious", 0),
-                  "suspicious": stats.get("suspicious", 0), "total": sum(stats.values())}
+        result = reputation_result("found", malicious=stats.get("malicious", 0),
+                                   suspicious=stats.get("suspicious", 0), total=sum(stats.values()))
     except HTTPError as e:
-        result = {"status": "not_found" if e.code == 404 else "rate_limited" if e.code == 429 else "error"}
+        result = reputation_result("not_found" if e.code == 404 else "rate_limited" if e.code == 429 else "error")
     except (URLError, KeyError, ValueError, TimeoutError):
-        result = {"status": "unavailable"}
+        result = reputation_result("unavailable")
     with LOCK:
         REPORT_CACHE[clean] = (time.time() + 1800, result)
         INFLIGHT.pop(clean).set()
@@ -97,8 +103,12 @@ class Handler(BaseHTTPRequestHandler):
                 raise ValueError()
         except ValueError:
             self.headers_json(400); self.wfile.write(b'{"error":"URL invalida"}'); return
-        result = {"model": {"probability": probability(raw, MODEL)} if MODEL else None,
-                  "reputation": reputation(raw, os.environ.get("VT_API_KEY"))}
+        result = {
+            "analysis_version": "evidence-v1",
+            "model": {"probability": probability(raw, MODEL), "source": "local_model",
+                      "calibrated": False, "decision_role": "corroborating"} if MODEL else None,
+            "reputation": reputation(raw, os.environ.get("VT_API_KEY"))
+        }
         self.headers_json(200)
         self.wfile.write(json.dumps(result).encode())
     def log_message(self, *_):

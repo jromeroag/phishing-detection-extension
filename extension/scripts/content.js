@@ -1,7 +1,7 @@
 // Revisa la página automáticamente al abrirse. La advertencia no detiene
 // la petición HTTP inicial: actúa cuando el script puede ejecutarse.
-let latestPageResult = { score: 0, reasons: [] };
-let remoteResult = { score: 0, reasons: [] };
+let latestPageResult = { score: 0, reasons: [], evidence: [] };
+let remoteResult = { score: 0, reasons: [], evidence: [] };
 let lastWarnedScore = -1;
 let inspected = false;
 let remoteFinished = false;
@@ -27,8 +27,8 @@ function analyzeCurrentPage() {
   if (requestedURL === analyzedURL) return;
   analyzedURL = requestedURL;
   const generation = ++analysisGeneration;
-  latestPageResult = { score: 0, reasons: [] };
-  remoteResult = { score: 0, reasons: [] };
+  latestPageResult = { score: 0, reasons: [], evidence: [] };
+  remoteResult = { score: 0, reasons: [], evidence: [] };
   lastWarnedScore = -1;
   inspected = false;
   remoteFinished = false;
@@ -74,7 +74,8 @@ function updatePageAlert(expectedURL = analyzedURL, expectedGeneration = analysi
       expectedURL !== analyzedURL || location.href !== expectedURL) return;
   const local = EscudoAnalyzer.combine(EscudoAnalyzer.analyzeURL(expectedURL), latestPageResult);
   const final = EscudoAnalyzer.combine(local, remoteResult);
-  const unsafePasswordForm = latestPageResult.reasons.some((reason) => reason.includes("HTTP sin cifrado"));
+  const unsafePasswordForm = latestPageResult.evidence?.some((item) => item.id === "HTTP_PASSWORD_FORM") ||
+    latestPageResult.reasons.some((reason) => reason.includes("HTTP sin cifrado"));
   if (final.level === "high" && (local.level === "high" || !remoteResult.needsCorroboration)) {
     if (final.score > lastWarnedScore) showWarning(expectedURL, final, true);
     return;
@@ -97,20 +98,28 @@ function updatePageAlert(expectedURL = analyzedURL, expectedGeneration = analysi
 // Se revisa la estructura del formulario, nunca los valores escritos.
 function inspectPage() {
   let score = 0;
-  const reasons = [];
+  const evidence = [];
   const forms = [...document.querySelectorAll("form")].filter((form) => form.querySelector('input[type="password"]'));
   if (forms.length && location.protocol === "http:") {
     score += 25;
-    reasons.push("La página pide contraseña mediante HTTP sin cifrado.");
+    evidence.push(EscudoAnalyzer.createEvidence("HTTP_PASSWORD_FORM", {
+      description: "La página pide contraseña mediante HTTP sin cifrado.",
+      observedValue: forms.length + " formulario(s) sobre HTTP", threshold: "HTTPS",
+      scoreContribution: 25, severity: "high", contributesToDecision: true
+    }));
   }
   if (forms.some((form) => {
     try { return new URL(form.action || location.href, location.href).origin !== location.origin; }
     catch { return false; }
   })) {
     score += 15;
-    reasons.push("Un formulario de contraseña envía datos a otro origen; comprueba el destino.");
+    evidence.push(EscudoAnalyzer.createEvidence("CROSS_ORIGIN_FORM", {
+      description: "Un formulario de contraseña envía datos a otro origen; comprueba el destino.",
+      observedValue: "Origen diferente", threshold: "Mismo origen",
+      scoreContribution: 15, severity: "medium", contributesToDecision: true
+    }));
   }
-  return { score, reasons };
+  return { score, evidence, reasons: evidence.map((item) => item.description) };
 }
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message?.type === "PAGE_SIGNALS") sendResponse(latestPageResult);
@@ -171,7 +180,14 @@ function showWarning(destination, result, onArrival) {
   const banner = document.createElement("div"); banner.className = "heading";
   const wording = document.createElement("div"); wording.append(riskLabel, heading, explanation); banner.append(statusIcon, wording);
   const address = document.createElement("p"); address.className = "address"; address.textContent = destination;
-  const list = document.createElement("ul"); result.reasons.forEach((reason) => { const li = document.createElement("li"); li.textContent = reason; list.append(li); });
+  const sourceNames = { url: "URL", page: "Página", model: "Modelo", virustotal: "VirusTotal" };
+  const list = document.createElement("ul");
+  (result.evidence || result.reasons.map((description) => ({ description }))).forEach((item) => {
+    const li = document.createElement("li");
+    const contribution = item.contributesToDecision ? " (" + (item.scoreContribution > 0 ? "+" : "") + item.scoreContribution + " puntos)" : " (informativa)";
+    li.textContent = item.description + (item.source ? " Fuente: " + (sourceNames[item.source] || item.source) + contribution : "");
+    list.append(li);
+  });
   const recommendations = document.createElement("section"); recommendations.className = "recommendations";
   const recommendationsTitle = document.createElement("h3"); recommendationsTitle.textContent = "Recomendaciones";
   const recommendationsList = document.createElement("ul");

@@ -10,7 +10,27 @@ for (const [score, expected] of [[0,'low'],[1,'medium'],[25,'medium'],[26,'high'
 assert.equal(analyzer.analyzeURL('http://127.0.0.1:8000/').score, 0);
 assert.equal(analyzer.analyzeURL('https://example.com/login').score, 0);
 assert.equal(analyzer.analyzeURL('https://a-b-c-login.example/').score, 20);
-assert.equal(analyzer.analyzeURL('https://usuario@login-verificar.example/').level, 'high');
+const fakeBcp = analyzer.analyzeURL('https://alerta-viabcp.com/en');
+assert.equal(fakeBcp.level, 'high');
+assert.equal(fakeBcp.score, 45);
+assert.equal(fakeBcp.evidence[0].id, 'BRAND_IMPERSONATION');
+assert.equal(fakeBcp.evidence[0].source, 'url');
+assert.equal(fakeBcp.evidence[0].observedValue, 'alerta-viabcp.com');
+assert.equal(fakeBcp.evidence[0].scoreContribution, 45);
+for (const deceptive of ['https://viabcp-seguridad.com/', 'https://login-viabcp.net/', 'https://viabcp.com.ejemplo.com/']) {
+  assert.equal(analyzer.analyzeURL(deceptive).level, 'high', deceptive);
+  assert.ok(analyzer.analyzeURL(deceptive).evidence.some((item) => item.id === 'BRAND_IMPERSONATION'));
+}
+for (const official of ['https://viabcp.com/', 'https://www.viabcp.com/', 'https://seguridad.viabcp.com/', 'https://viabcp.com.pe/']) {
+  assert.equal(analyzer.analyzeURL(official).score, 0, official);
+}
+const credentialRisk = analyzer.analyzeURL('https://usuario@login-verificar.example/');
+assert.equal(credentialRisk.level, 'high');
+assert.equal(credentialRisk.evidence[0].id, 'URL_CREDENTIALS');
+assert.equal(credentialRisk.evidence[0].source, 'url');
+assert.equal(credentialRisk.evidence[0].scoreContribution, 45);
+assert.equal(credentialRisk.evidence[0].contributesToDecision, true);
+assert.ok(credentialRisk.evidence[0].observedValue);
 const combined = analyzer.combine(analyzer.analyzeURL('https://example.com/'), {score: 25,reasons:['Formulario HTTP']});
 assert.equal(combined.level, 'medium');
 assert.equal(combined.reasons[0], 'Formulario HTTP');
@@ -39,6 +59,12 @@ const atThreshold = analyzer.scoreRemote({reputation:{status:'found',malicious:1
 assert.equal(atThreshold.score, 20);
 assert.match(atThreshold.reasons.join(' '), /modelo también/i);
 const twoEngines = analyzer.scoreRemote({reputation:{status:'found',malicious:2,suspicious:0}, model:null});
+assert.equal(twoEngines.evidence[0].id, 'VT_MALICIOUS');
+assert.equal(twoEngines.evidence[0].source, 'virustotal');
+assert.equal(twoEngines.evidence[0].observedValue, '2 detecciones');
+assert.equal(twoEngines.evidence[0].scoreContribution, 30);
 assert.equal(analyzer.combine(analyzer.analyzeURL('https://example.com/'), twoEngines).level, 'high');
 assert.equal(analyzer.combine(analyzer.analyzeURL('https://usuario@example.com/'), modelOnly).level, 'high');
+assert.equal(modelOnly.evidence[0].contributesToDecision, false);
+assert.equal(modelOnly.evidence[0].scoreContribution, 0);
 console.log('Analizador y combinación: correctos');

@@ -63,8 +63,13 @@ function updateMessagePanel(link) {
   const info = document.createElement("div"); info.className = "escudo-mail-info"; info.hidden = true;
   const address = document.createElement("p"); address.textContent = "Destino: " + risk.link.href;
   const list = document.createElement("ul");
-  for (const reason of risk.result.reasons) {
-    const item = document.createElement("li"); item.textContent = reason; list.append(item);
+  const sourceNames = { url: "URL", page: "Página", model: "Modelo", virustotal: "VirusTotal" };
+  for (const evidence of (risk.result.evidence || risk.result.reasons.map((description) => ({ description })))) {
+    const item = document.createElement("li");
+    const source = evidence.source ? " Fuente: " + (sourceNames[evidence.source] || evidence.source) + "." : "";
+    const contribution = evidence.contributesToDecision ? " Aporte: +" + evidence.scoreContribution + " puntos." : "";
+    item.textContent = evidence.description + source + contribution;
+    list.append(item);
   }
   info.append(address, list);
   details.addEventListener("click", () => { info.hidden = !info.hidden; details.textContent = info.hidden ? "Ver detalles" : "Ocultar detalles"; });

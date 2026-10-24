@@ -27,6 +27,10 @@ assert.equal(lookups, 1);
 assert.equal(element('score').textContent, '30/100');
 assert.equal(element('badge').textContent, 'Rojo');
 assert.match(element('symbol').src, /status-red\.svg$/);
+assert.match(element('reasons').children[0].textContent, /Fuente: VirusTotal/);
+assert.match(element('reasons').children[0].textContent, /Aporte al resultado: \+30 puntos/);
+assert.match(element('overview-evidence').children[0].textContent, /Detecciones maliciosas/);
+assert.match(element('overview-evidence').children[0].textContent, /VirusTotal · \+30 puntos/);
 chrome.runtime.sendMessage = (_message, callback) => callback({
   model: { probability: .96 }, reputation: { status: 'not_found' }
 });
@@ -38,6 +42,7 @@ assert.match(element('symbol').src, /status-green\.svg$/);
 assert.match(element('source-status').textContent, /sin calibrar/);
 assert.match(element('source-status').textContent, /no puntúa por sí sola/);
 assert.match(element('reasons').children.at(-1).textContent, /no está validado/);
+assert.match(element('reasons').children.at(-1).textContent, /informativa \(0 puntos\)/);
 chrome.runtime.sendMessage = (_message, callback) => callback({
   model: { probability: 1 }, reputation: { status: 'found', malicious: 0, suspicious: 0, total: 90 }
 });
@@ -62,4 +67,12 @@ element('check-form').listeners.submit({ preventDefault() {} });
 assert.equal(element('badge').textContent, 'Rojo');
 assert.match(element('status').textContent, /Riesgo detectado/);
 assert.match(element('symbol').src, /status-red\.svg$/);
+chrome.runtime.sendMessage = (_message, callback) => callback({
+  model: { probability: .71 }, reputation: { status: 'not_found' }
+});
+element('candidate').value = 'https://alerta-viabcp.com/en';
+element('check-form').listeners.submit({ preventDefault() {} });
+assert.equal(element('score').textContent, '45/100');
+assert.match(element('overview-evidence').children[0].textContent, /Posible suplantación de Vía BCP/);
+assert.match(element('overview-evidence').children[0].textContent, /Reglas de URL · \+45 puntos/);
 console.log('Popup: consulta automática y resultado remoto correctos');
