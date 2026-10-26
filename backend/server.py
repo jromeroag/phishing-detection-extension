@@ -1,4 +1,9 @@
-"""Servidor local de consulta bajo demanda. API key únicamente en el entorno."""
+"""API de análisis para ejecución local y despliegue en Google Cloud Run.
+
+La clave de VirusTotal se obtiene únicamente desde la variable de entorno
+``VT_API_KEY``. Cloud Run inyecta ``PORT`` y el contenedor escucha en
+``0.0.0.0``; durante el desarrollo local se conservan los valores originales.
+"""
 import base64
 import json
 import os
@@ -20,6 +25,23 @@ INFLIGHT = {}
 REQUEST_TIMES = deque()
 DAILY = {"date": "", "count": 0}
 LOCK = threading.Lock()
+SERVICE_VERSION = "9.4.0"
+DEFAULT_ALLOWED_EXTENSION_ORIGINS = "chrome-extension://*,moz-extension://*"
+
+
+def origin_allowed(origin):
+    """Comprueba el origen de la extensión sin convertir CORS en autenticación."""
+    configured = os.environ.get(
+        "ALLOWED_EXTENSION_ORIGINS", DEFAULT_ALLOWED_EXTENSION_ORIGINS
+    )
+    for candidate in (item.strip() for item in configured.split(",")):
+        if not candidate:
+            continue
+        if candidate.endswith("*") and origin.startswith(candidate[:-1]):
+            return True
+        if origin == candidate:
+            return True
+    return False
 
 
 def reputation_result(status, **details):
@@ -73,48 +95,102 @@ def reputation(raw, key):
 
 
 class Handler(BaseHTTPRequestHandler):
+    server_version = "EscudoAPI/" + SERVICE_VERSION
+
     def allowed(self):
         origin = self.headers.get("Origin", "")
-        return origin.startswith(("chrome-extension://", "moz-extension://")) or (
+        return origin_allowed(origin) or (
             not origin and self.client_address[0] in {"127.0.0.1", "::1"})
-    def headers_json(self, code):
+
+    def send_json(self, code, payload, include_cors=True):
+        body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
         self.send_response(code)
         self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "no-store")
         origin = self.headers.get("Origin", "")
-        if origin.startswith(("chrome-extension://", "moz-extension://")):
+        if include_cors and origin_allowed(origin):
             self.send_header("Access-Control-Allow-Origin", origin)
             self.send_header("Vary", "Origin")
         self.end_headers()
+        self.wfile.write(body)
+
     def do_OPTIONS(self):
-        if not self.allowed(): self.send_error(403); return
+        if urlsplit(self.path).path != "/analyze":
+            self.send_error(404)
+            return
+        if not self.allowed():
+            self.send_error(403)
+            return
         self.send_response(204)
         self.send_header("Access-Control-Allow-Origin", self.headers.get("Origin", "null"))
         self.send_header("Access-Control-Allow-Methods", "GET, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        self.send_header("Access-Control-Max-Age", "86400")
         self.end_headers()
+
     def do_GET(self):
-        if not self.allowed(): self.send_error(403); return
         u = urlsplit(self.path)
-        if u.path != "/analyze": self.send_error(404); return
+        if u.path == "/health":
+            self.send_json(200, {
+                "status": "ok",
+                "service": "escudo-transparente-api",
+                "version": SERVICE_VERSION,
+                "model_loaded": MODEL is not None,
+                "virustotal_configured": bool(os.environ.get("VT_API_KEY")),
+            })
+            return
+        if u.path != "/analyze":
+            self.send_error(404)
+            return
+        if not self.allowed():
+            self.send_error(403)
+            return
         raw = parse_qs(u.query).get("url", [""])[0]
         try:
             parsed = urlsplit(raw)
             if parsed.scheme not in {"http", "https"} or not parsed.hostname or len(raw) > 2048:
                 raise ValueError()
         except ValueError:
-            self.headers_json(400); self.wfile.write(b'{"error":"URL invalida"}'); return
+            self.send_json(400, {"error": "URL inválida"})
+            return
         result = {
             "analysis_version": "evidence-v1",
             "model": {"probability": probability(raw, MODEL), "source": "local_model",
                       "calibrated": False, "decision_role": "corroborating"} if MODEL else None,
             "reputation": reputation(raw, os.environ.get("VT_API_KEY"))
         }
-        self.headers_json(200)
-        self.wfile.write(json.dumps(result).encode())
+        self.send_json(200, result)
+
     def log_message(self, *_):
         pass  # No registrar URLs consultadas en la consola.
 
 
+class EscudoHTTPServer(ThreadingHTTPServer):
+    daemon_threads = True
+    allow_reuse_address = True
+
+
+def runtime_address():
+    """Obtiene una dirección compatible con local y con el contrato de Cloud Run."""
+    default_host = "0.0.0.0" if os.environ.get("K_SERVICE") else "127.0.0.1"
+    host = os.environ.get("HOST", default_host)
+    try:
+        port = int(os.environ.get("PORT", "8765"))
+    except ValueError as exc:
+        raise SystemExit("PORT debe ser un número entero") from exc
+    if not 1 <= port <= 65535:
+        raise SystemExit("PORT debe estar entre 1 y 65535")
+    return host, port
+
+
 if __name__ == "__main__":
-    print("Escudo: servidor en http://127.0.0.1:8765")
-    ThreadingHTTPServer(("127.0.0.1", 8765), Handler).serve_forever()
+    bind_host, bind_port = runtime_address()
+    print(f"Escudo API {SERVICE_VERSION}: escuchando en {bind_host}:{bind_port}", flush=True)
+    server = EscudoHTTPServer((bind_host, bind_port), Handler)
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        pass
+    finally:
+        server.server_close()

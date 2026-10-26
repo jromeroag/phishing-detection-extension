@@ -1,6 +1,6 @@
 # Pruebas en Chrome o Edge — versión 0.9.0
 
-Antes de empezar, guarda una copia de `backend/model.json` y de tu CSV. Abre la carpeta en VS Code, ejecuta `python backend/server.py`, reemplaza los archivos de `extension/` y pulsa **Actualizar** en `chrome://extensions`. Recarga las pestañas abiertas. Para verificar VirusTotal, inicia el servidor con `VT_API_KEY` en el entorno como explica el README.
+Antes de empezar, guarda una copia de `backend/model.json` y de tu CSV. Abre la carpeta en VS Code y usa el backend local con `python backend/server.py` o el despliegue descrito en `GUIA_GOOGLE_CLOUD.md`. Carga la carpeta `extension/`, pulsa **Actualizar** en `chrome://extensions` y recarga las pestañas abiertas. Para verificar VirusTotal, configura `VT_API_KEY` como explica el README, ya sea en la terminal local o en Secret Manager.
 
 | Caso | Pasos | Resultado esperado |
 | --- | --- | --- |

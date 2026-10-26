@@ -1,0 +1,164 @@
+[CmdletBinding()]
+param(
+    [Parameter(Mandatory = $true)]
+    [ValidatePattern('^[a-z][a-z0-9-]{4,28}[a-z0-9]$')]
+    [string]$ProjectId,
+
+    [string]$Region = "southamerica-west1",
+    [string]$ServiceName = "escudo-transparente-api",
+
+    [ValidatePattern('^$|^[a-p]{32}$')]
+    [string]$ExtensionId = "",
+
+    [switch]$ConfigureVirusTotal
+)
+
+$ErrorActionPreference = "Stop"
+$ProjectRoot = Split-Path -Parent $PSScriptRoot
+$BackendPath = Join-Path $ProjectRoot "backend"
+$ConfiguratorPath = Join-Path $ProjectRoot "tools\configure_extension.py"
+$RuntimeServiceAccount = "escudo-cloud-run@$ProjectId.iam.gserviceaccount.com"
+
+function Invoke-Gcloud {
+    param([string[]]$Arguments)
+    & gcloud @Arguments
+    if ($LASTEXITCODE -ne 0) {
+        throw "Falló el comando: gcloud $($Arguments -join ' ')"
+    }
+}
+
+if (-not (Get-Command gcloud -ErrorAction SilentlyContinue)) {
+    throw "No se encontró Google Cloud CLI. Instálalo y ejecuta: gcloud init"
+}
+
+$ActiveAccount = & gcloud auth list --filter="status:ACTIVE" --format="value(account)" | Select-Object -First 1
+if (-not $ActiveAccount) {
+    throw "No hay una sesión activa. Ejecuta: gcloud auth login"
+}
+
+Write-Host "Configurando el proyecto $ProjectId..."
+Invoke-Gcloud @("config", "set", "project", $ProjectId)
+Invoke-Gcloud @(
+    "services", "enable",
+    "run.googleapis.com",
+    "cloudbuild.googleapis.com",
+    "artifactregistry.googleapis.com",
+    "secretmanager.googleapis.com",
+    "iam.googleapis.com",
+    "--project=$ProjectId"
+)
+
+& gcloud iam service-accounts describe $RuntimeServiceAccount --project=$ProjectId *> $null
+if ($LASTEXITCODE -ne 0) {
+    Invoke-Gcloud @(
+        "iam", "service-accounts", "create", "escudo-cloud-run",
+        "--display-name=Escudo Transparente Cloud Run",
+        "--project=$ProjectId"
+    )
+}
+
+if ($ConfigureVirusTotal) {
+    $SecureKey = Read-Host "Ingresa VT_API_KEY (no se mostrará)" -AsSecureString
+    $Pointer = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($SecureKey)
+    $SecretTempPath = $null
+    try {
+        $PlainKey = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($Pointer)
+        if ([string]::IsNullOrWhiteSpace($PlainKey)) {
+            throw "La clave de VirusTotal no puede estar vacía."
+        }
+        $SecretTempPath = [IO.Path]::GetTempFileName()
+        [IO.File]::WriteAllText(
+            $SecretTempPath,
+            $PlainKey,
+            [Text.UTF8Encoding]::new($false)
+        )
+        & gcloud secrets describe VT_API_KEY --project=$ProjectId *> $null
+        if ($LASTEXITCODE -eq 0) {
+            & gcloud secrets versions add VT_API_KEY --data-file=$SecretTempPath --project=$ProjectId
+        } else {
+            & gcloud secrets create VT_API_KEY --data-file=$SecretTempPath --replication-policy=automatic --project=$ProjectId
+        }
+        if ($LASTEXITCODE -ne 0) {
+            throw "No se pudo guardar VT_API_KEY en Secret Manager."
+        }
+    } finally {
+        if ($Pointer -ne [IntPtr]::Zero) {
+            [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($Pointer)
+        }
+        if ($SecretTempPath -and (Test-Path -LiteralPath $SecretTempPath)) {
+            Remove-Item -LiteralPath $SecretTempPath -Force
+        }
+        $PlainKey = $null
+    }
+}
+
+& gcloud secrets describe VT_API_KEY --project=$ProjectId *> $null
+$UseVirusTotalSecret = $LASTEXITCODE -eq 0
+if ($UseVirusTotalSecret) {
+    Invoke-Gcloud @(
+        "secrets", "add-iam-policy-binding", "VT_API_KEY",
+        "--member=serviceAccount:$RuntimeServiceAccount",
+        "--role=roles/secretmanager.secretAccessor",
+        "--project=$ProjectId"
+    )
+}
+
+$AllowedOrigin = if ($ExtensionId) {
+    "chrome-extension://$ExtensionId"
+} else {
+    "chrome-extension://*"
+}
+
+$DeployArguments = @(
+    "run", "deploy", $ServiceName,
+    "--source=$BackendPath",
+    "--region=$Region",
+    "--project=$ProjectId",
+    "--platform=managed",
+    "--allow-unauthenticated",
+    "--service-account=$RuntimeServiceAccount",
+    "--memory=512Mi",
+    "--cpu=1",
+    "--concurrency=20",
+    "--timeout=15s",
+    "--min-instances=0",
+    "--max-instances=1",
+    "--set-env-vars=ALLOWED_EXTENSION_ORIGINS=$AllowedOrigin",
+    "--quiet"
+)
+if ($UseVirusTotalSecret) {
+    $DeployArguments += "--update-secrets=VT_API_KEY=VT_API_KEY:latest"
+}
+
+Write-Host "Construyendo y publicando el backend en Cloud Run..."
+Invoke-Gcloud $DeployArguments
+
+$ServiceUrl = & gcloud run services describe $ServiceName `
+    --region=$Region `
+    --project=$ProjectId `
+    --format="value(status.url)"
+if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($ServiceUrl)) {
+    throw "El servicio se publicó, pero no fue posible obtener su URL."
+}
+$ServiceUrl = $ServiceUrl.Trim()
+
+if (Get-Command py -ErrorAction SilentlyContinue) {
+    & py -3 $ConfiguratorPath $ServiceUrl
+} elseif (Get-Command python -ErrorAction SilentlyContinue) {
+    & python $ConfiguratorPath $ServiceUrl
+} else {
+    throw "Cloud Run quedó publicado, pero falta Python para configurar la extensión."
+}
+if ($LASTEXITCODE -ne 0) {
+    throw "Cloud Run quedó publicado, pero no se pudo actualizar extension/config.js."
+}
+
+$Health = Invoke-RestMethod -Uri "$ServiceUrl/health" -TimeoutSec 30
+if ($Health.status -ne "ok") {
+    throw "El servicio respondió, pero la comprobación de salud no fue correcta."
+}
+
+Write-Host ""
+Write-Host "Despliegue terminado correctamente." -ForegroundColor Green
+Write-Host "API: $ServiceUrl"
+Write-Host "Ahora abre chrome://extensions, pulsa Actualizar y prueba la extensión."

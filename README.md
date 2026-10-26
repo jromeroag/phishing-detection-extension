@@ -1,6 +1,6 @@
-# Escudo Transparente — versión 9.3.2
+# Escudo Transparente — versión 9.4.0
 
-Prototipo funcional de extensión para Chrome y Edge con icono de escudo. La interfaz utiliza dos colores: verde cuando no se encuentran señales y rojo cuando existe algún indicio de riesgo. Internamente distingue entre rojo preventivo, que permite continuar, y rojo crítico, que bloquea preventivamente. Revisa automáticamente características de la URL y formularios de contraseña de la página; marca enlaces renderizados en Gmail y Outlook; consulta automáticamente un modelo entrenado y reputación de VirusTotal mediante un servidor local. **Solo son resultados reales las fuentes que aparezcan como disponibles.** Una URL sin señales no es una URL segura.
+Prototipo funcional de extensión para Chrome y Edge con icono de escudo. La interfaz utiliza dos colores: verde cuando no se encuentran señales y rojo cuando existe algún indicio de riesgo. Internamente distingue entre rojo preventivo, que permite continuar, y rojo crítico, que bloquea preventivamente. Revisa automáticamente características de la URL y formularios de contraseña de la página; marca enlaces renderizados en Gmail y Outlook; consulta automáticamente un modelo entrenado y reputación de VirusTotal mediante un backend local o publicado en Google Cloud Run. **Solo son resultados reales las fuentes que aparezcan como disponibles.** Una URL sin señales no es una URL segura.
 
 ## 1. Abrir en VS Code e instalar
 
@@ -27,7 +27,7 @@ Para pruebas locales, ejecuta `python -m http.server 8000` en una carpeta de pru
 
 Al abrir un mensaje en Gmail u Outlook web, la extensión marca junto a sus enlaces `⚠ Revisar enlace` o `⛔ Enlace sospechoso` según la URL. Cuando hay un enlace rojo, muestra dentro del mensaje una tarjeta de alerta con **No abrir** y **Ver detalles**. El enlace rojo queda detenido al pulsarlo; los detalles muestran su URL y las señales concretas del análisis y, para hasta cuatro enlaces distintos por carga, actualiza la marca con el modelo y VirusTotal si el servidor responde. El límite evita gastar de golpe la cuota gratuita; los demás enlaces conservan únicamente el análisis local. Chrome/Edge restringen páginas internas, y las interfaces del correo pueden cambiar sus selectores. Los enlaces envueltos por servicios de redirección se evalúan por su URL visible para el navegador; no se desenrollan ni se lee el contenido del mensaje. Prueba ambas interfaces con correos de prueba antes de demostrar esta función.
 
-## 4. Servidor local y VirusTotal opcional
+## 4. Backend local, Google Cloud y VirusTotal opcional
 
 Desde la terminal de VS Code, en la raíz del proyecto:
 
@@ -39,6 +39,8 @@ Al abrir una página o el popup, la extensión consulta automáticamente `127.0.
 
 - PowerShell: `$env:VT_API_KEY="TU_CLAVE"; python backend/server.py`
 - bash: `VT_API_KEY="TU_CLAVE" python backend/server.py`
+
+Para dejar de depender de `localhost`, sigue [`GUIA_GOOGLE_CLOUD.md`](GUIA_GOOGLE_CLOUD.md). La versión 9.4.0 incluye un `Dockerfile`, compatibilidad con las variables `PORT` y `HOST`, una ruta `/health`, almacenamiento opcional de `VT_API_KEY` en Secret Manager y un script de PowerShell que publica el backend y coloca automáticamente la URL HTTPS obtenida en `extension/config.js`. La extensión conserva el modo local como configuración inicial y nunca contiene la clave privada.
 
 Se usa el informe existente `GET /api/v3/urls/{id}`; si no existe informe o hay límite de cuota, el resultado se informa como no disponible. Para consultas automáticas, el servidor **elimina usuario, contraseña, parámetros de consulta y fragmento** antes de enviarlo a VirusTotal. Aun así comparte dominio y ruta; evita instalar este prototipo en un perfil con navegación confidencial. Esta normalización puede impedir encontrar un informe de la URL completa si dependía de sus parámetros. Los resultados se guardan en memoria durante 30 minutos y el servidor limita las solicitudes a un máximo de 4 por minuto y 500 al día; alcanzar el límite deja la reputación como no disponible, sin bloquear por ese motivo. La extensión no guarda la clave. La API pública de VirusTotal no está autorizada para productos comerciales; la versión Premium planteada en el BMC requerirá condiciones/licencia apropiadas antes de venderse.
 
@@ -73,3 +75,5 @@ El segundo CSV es opcional, pero permite avisar si hay dominios comunes con el e
 ## 6. Verificación y límites
 
 Corre `node tests/analyzer.test.js`, `node tests/content.test.js`, `node tests/background.test.js`, `node tests/popup.test.js`, `node tests/mail.test.js` y `python -m unittest discover -s tests -p 'test_*.py'` desde la raíz. Incluyen la escala 0/1–25/26–100, URL largas, alertas, consultas, bloqueo automático simulado y lectura de CSV. Sigue también la guía `PRUEBAS_NAVEGADOR.md` para probarlo realmente en Chrome/Edge. El bloqueo de red necesita un informe existente de VirusTotal con al menos dos detecciones. Las páginas internas, iframes y ciertos enlaces abiertos desde otras aplicaciones quedan fuera del script. El correo y el bloqueo de red necesitan comprobación en el navegador antes de presentarlos como validados.
+
+El despliegue de Cloud Run se prueba adicionalmente consultando `URL_DE_CLOUD_RUN/health`. En producción, configura `ALLOWED_EXTENSION_ORIGINS` con el origen exacto `chrome-extension://ID`; el comodín incluido en el despliegue sin `-ExtensionId` sirve únicamente para el prototipo. Un servicio público también necesita autenticación, cuotas persistentes y monitoreo antes de distribuirse comercialmente.

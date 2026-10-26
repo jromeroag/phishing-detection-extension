@@ -4,6 +4,7 @@ const vm = require('node:vm');
 const rules = [];
 let lookup = { reputation: { status: 'found', malicious: 2, suspicious: 0 } };
 let listener;
+let requestedEndpoint;
 const chrome = {
   runtime: { onMessage: { addListener(callback) { listener = callback; } } },
   declarativeNetRequest: {
@@ -11,7 +12,14 @@ const chrome = {
     async updateSessionRules({ addRules }) { rules.push(...addRules); }
   }
 };
-const context = { URL, Promise, chrome, AbortSignal, fetch: async () => ({ ok: true, json: async () => lookup }) };
+const context = {
+  URL, Promise, chrome, AbortSignal,
+  ESCUDO_CONFIG: { API_BASE_URL: 'https://escudo-test.run.app' },
+  fetch: async (url) => {
+    requestedEndpoint = url;
+    return { ok: true, json: async () => lookup };
+  }
+};
 vm.createContext(context);
 vm.runInContext(fs.readFileSync('extension/scripts/background.js', 'utf8'), context);
 function send(url) {
@@ -20,6 +28,8 @@ function send(url) {
 (async () => {
   const target = 'https://example.com/login?x=1&y=2';
   await Promise.all([send(target), send(target)]);
+  assert.ok(requestedEndpoint.startsWith('https://escudo-test.run.app/analyze?url='));
+  assert.equal(new URL(requestedEndpoint).searchParams.get('url'), target);
   assert.equal(rules.length, 1);
   assert.equal(rules[0].condition.resourceTypes[0], 'main_frame');
   assert.equal(rules[0].action.redirect.extensionPath, '/pages/blocked.html');

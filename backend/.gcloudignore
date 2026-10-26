@@ -1,0 +1,10 @@
+.gcloudignore
+.git
+.gitignore
+__pycache__/
+*.py[cod]
+evaluation*.json
+evaluate_*.py
+train*.py
+validate_*.py
+model_v2.json

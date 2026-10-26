@@ -1,5 +1,17 @@
-// Única ruta de consulta: la clave permanece en el servidor local.
+// La URL del backend se mantiene en config.js; nunca se guarda aquí una API key.
 // Los bloqueos automáticos son de sesión y se aplican a futuras navegaciones.
+if (typeof importScripts === "function") {
+  importScripts(chrome.runtime.getURL("config.js"));
+}
+const API_BASE_URL = globalThis.ESCUDO_CONFIG?.API_BASE_URL || "http://127.0.0.1:8765";
+
+function analysisEndpoint(rawURL) {
+  const base = API_BASE_URL.endsWith("/") ? API_BASE_URL : API_BASE_URL + "/";
+  const endpoint = new URL("analyze", base);
+  endpoint.searchParams.set("url", rawURL);
+  return endpoint.href;
+}
+
 let ruleQueue = Promise.resolve();
 function exactRule(url, id) {
   const target = new URL(url);
@@ -27,7 +39,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (!["http:", "https:"].includes(url.protocol) || message.url.length > 2048) {
       sendResponse({ error: "URL no válida" }); return;
     }
-    fetch("http://127.0.0.1:8765/analyze?url=" + encodeURIComponent(message.url), {
+    fetch(analysisEndpoint(message.url), {
       signal: AbortSignal.timeout(5500)
     }).then(async (response) => {
       if (!response.ok) throw new Error("HTTP " + response.status);
@@ -37,7 +49,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         catch { /* La alerta de la página aún puede mostrarse sin bloqueo de red. */ }
       }
       sendResponse(data);
-    }).catch(() => sendResponse({ error: "Servidor local no disponible" }));
+    }).catch(() => sendResponse({ error: "Servicio de análisis no disponible" }));
   } catch { sendResponse({ error: "URL no válida" }); }
   return true;
 });
