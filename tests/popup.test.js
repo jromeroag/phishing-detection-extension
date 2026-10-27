@@ -24,7 +24,7 @@ const context = { URL, document, chrome }; vm.createContext(context);
 vm.runInContext(fs.readFileSync('extension/services/analyzer.js', 'utf8'), context);
 vm.runInContext(fs.readFileSync('extension/popup/popup.js', 'utf8'), context);
 assert.equal(lookups, 1);
-assert.equal(element('score').textContent, '30/100');
+assert.equal(element('score').textContent, '1 señal · 30/100');
 assert.equal(element('badge').textContent, 'Rojo');
 assert.match(element('symbol').src, /status-red\.svg$/);
 assert.match(element('reasons').children[0].textContent, /Fuente: VirusTotal/);
@@ -32,11 +32,23 @@ assert.match(element('reasons').children[0].textContent, /Aporte al resultado: \
 assert.match(element('overview-evidence').children[0].textContent, /Detecciones maliciosas/);
 assert.match(element('overview-evidence').children[0].textContent, /VirusTotal · \+30 puntos/);
 chrome.runtime.sendMessage = (_message, callback) => callback({
+  model: null,
+  reputation: { status: 'not_found' },
+  google_safe_browsing: { status: 'match', threat_types: ['SOCIAL_ENGINEERING'] },
+  phishtank: { status: 'not_found' },
+  ipqualityscore: { status: 'found', risk_score: 0, unsafe: false, suspicious: false, phishing: false, malware: false }
+});
+element('candidate').value = 'https://google-threat.example/';
+element('check-form').listeners.submit({ preventDefault() {} });
+assert.equal(element('score').textContent, '1 señal · 40/100');
+assert.match(element('reasons').children[0].textContent, /Fuente: Google Safe Browsing/);
+assert.match(element('source-status').textContent, /Google Safe Browsing: coincidencia/);
+chrome.runtime.sendMessage = (_message, callback) => callback({
   model: { probability: .96 }, reputation: { status: 'not_found' }
 });
 element('candidate').value = 'https://www.linkedin.com/in/jromeroag/';
 element('check-form').listeners.submit({ preventDefault() {} });
-assert.equal(element('score').textContent, '0/100');
+assert.equal(element('score').textContent, '0 señales · 0/100');
 assert.equal(element('badge').textContent, 'Verde');
 assert.match(element('symbol').src, /status-green\.svg$/);
 assert.match(element('source-status').textContent, /sin calibrar/);
@@ -50,8 +62,8 @@ element('candidate').value = 'https://www.google.com/webhp?hl=es&sa=X';
 element('check-form').listeners.submit({ preventDefault() {} });
 assert.equal(element('domain').textContent, 'www.google.com');
 assert.equal(element('detail-domain').textContent, 'www.google.com');
-assert.equal(element('score').textContent, '0/100');
-assert.match(element('source-status').textContent, /ruta sin parámetros/);
+assert.equal(element('score').textContent, '0 señales · 0/100');
+assert.match(element('source-status').textContent, /sin credenciales, parámetros ni fragmento/);
 chrome.runtime.sendMessage = (_message, callback) => callback({
   model: null, reputation: { status: 'not_found' }
 });
@@ -72,7 +84,7 @@ chrome.runtime.sendMessage = (_message, callback) => callback({
 });
 element('candidate').value = 'https://alerta-viabcp.com/en';
 element('check-form').listeners.submit({ preventDefault() {} });
-assert.equal(element('score').textContent, '45/100');
+assert.equal(element('score').textContent, '1 señal · 45/100');
 assert.match(element('overview-evidence').children[0].textContent, /Posible suplantación de Vía BCP/);
 assert.match(element('overview-evidence').children[0].textContent, /Reglas de URL · \+45 puntos/);
 console.log('Popup: consulta automática y resultado remoto correctos');

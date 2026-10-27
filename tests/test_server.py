@@ -18,6 +18,14 @@ class ServerEvidenceTests(unittest.TestCase):
         self.assertFalse(result["query_parameters_shared"])
         self.assertNotIn("token", str(result))
 
+    def test_all_source_configuration_flags_are_exposed_by_health_contract(self):
+        expected = {
+            "VT_API_KEY", "GOOGLE_SAFE_BROWSING_API_KEY",
+            "PHISHTANK_API_KEY", "IPQS_API_KEY"
+        }
+        server_text = (BACKEND / "server.py").read_text(encoding="utf-8")
+        self.assertTrue(all(name in server_text for name in expected))
+
     def test_cloud_run_uses_injected_host_and_port(self):
         with patch.dict("os.environ", {"K_SERVICE": "escudo", "PORT": "8080"}, clear=True):
             self.assertEqual(runtime_address(), ("0.0.0.0", 8080))

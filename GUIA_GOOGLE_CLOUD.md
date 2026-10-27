@@ -34,6 +34,14 @@ powershell -ExecutionPolicy Bypass -File .\cloud\deploy-cloud-run.ps1 -ProjectId
 
 La clave se solicita de forma oculta y se guarda en Secret Manager. No se escribe en el código, en el ZIP ni en la extensión.
 
+Para configurar en una sola ejecución VirusTotal, Google Safe Browsing, PhishTank e IPQualityScore, usa:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\cloud\deploy-cloud-run.ps1 -ProjectId "ID_DE_TU_PROYECTO" -Region "us-central1" -ConfigureAllApis
+```
+
+El script solicitará las cuatro claves una por una y no mostrará lo que pegues. También puedes configurar solo una fuente con `-ConfigureGoogleSafeBrowsing`, `-ConfigurePhishTank` o `-ConfigureIPQualityScore`. Consulta [`CONFIGURACION_APIS.md`](CONFIGURACION_APIS.md).
+
 Para restringir CORS al identificador definitivo de la extensión:
 
 ```powershell
@@ -44,13 +52,14 @@ El identificador aparece en `chrome://extensions`. Si todavía estás trabajando
 
 ## 3. Qué realiza el script
 
-1. Habilita Cloud Run, Cloud Build, Artifact Registry y Secret Manager.
+1. Habilita Cloud Run, Cloud Build, Artifact Registry, Secret Manager y Safe Browsing API.
 2. Crea una cuenta de servicio exclusiva para el backend.
-3. Construye la imagen usando `backend/Dockerfile`.
-4. Publica el servicio con cero instancias mínimas y una instancia máxima.
-5. Obtiene la dirección HTTPS de Cloud Run.
-6. Actualiza `extension/config.js` y el permiso exacto en `manifest.json`.
-7. Comprueba la ruta pública `/health`.
+3. Guarda las claves seleccionadas como secretos y concede acceso únicamente a la cuenta de servicio.
+4. Construye la imagen usando `backend/Dockerfile`.
+5. Publica el servicio con cero instancias mínimas y una instancia máxima.
+6. Obtiene la dirección HTTPS de Cloud Run.
+7. Actualiza `extension/config.js` y el permiso exacto en `manifest.json`.
+8. Comprueba la ruta pública `/health` y muestra qué fuentes quedaron configuradas.
 
 Al terminar aparecerá una dirección similar a:
 
@@ -85,6 +94,6 @@ Después pulsa **Actualizar** en la página de extensiones.
 
 ## 6. Control de costos y alcance
 
-El despliegue utiliza `min-instances=0` para que el servicio pueda reducirse a cero cuando no tenga tráfico, y `max-instances=1` para limitar el gasto y proteger la cuota académica de VirusTotal. Configura además un presupuesto y alertas de facturación en Google Cloud.
+El despliegue utiliza `min-instances=0` para que el servicio pueda reducirse a cero cuando no tenga tráfico, y `max-instances=1` para limitar el gasto y proteger las cuotas académicas de las APIs. Configura además un presupuesto y alertas de facturación en Google Cloud.
 
-Este despliegue es adecuado para el prototipo académico. Antes de vender la extensión se debe incorporar autenticación por usuario, límites persistentes, monitoreo y una licencia comercial del servicio de reputación. CORS limita qué páginas pueden consumir la API desde un navegador, pero no reemplaza la autenticación. La API pública de VirusTotal no debe utilizarse como parte de un producto comercial.
+Este despliegue es adecuado para el prototipo académico. Antes de vender la extensión se debe incorporar autenticación por usuario, límites persistentes, monitoreo y licencias comerciales. CORS limita qué páginas pueden consumir la API desde un navegador, pero no reemplaza la autenticación. Google Safe Browsing es solo para uso no comercial y debe reemplazarse por Google Web Risk para una versión vendida. La API pública de VirusTotal tampoco debe utilizarse como parte de un producto comercial. Verifica además los términos y el plan de PhishTank e IPQualityScore.

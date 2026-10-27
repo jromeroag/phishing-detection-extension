@@ -9,7 +9,7 @@ WORKDIR /app
 
 RUN useradd --uid 10001 --user-group --create-home --shell /usr/sbin/nologin escudo
 
-COPY --chown=escudo:escudo server.py model.py model.json ./
+COPY --chown=escudo:escudo server.py threat_sources.py model.py model.json ./
 
 USER 10001
 

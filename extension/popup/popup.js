@@ -10,7 +10,11 @@ const presentation = {
   high: { badge: "Rojo", title: "Enlace sospechoso", description: "Evita abrir el enlace e introducir tus datos.", icon: "status-red.svg" },
   unknown: { badge: "Sin análisis", title: "Página no analizable", description: "Introduce una URL HTTP o HTTPS.", icon: "escudo-48.png" }
 };
-const sourceNames = { url: "Reglas de URL", page: "Inspección de la página", model: "Modelo", virustotal: "VirusTotal", unknown: "No disponible" };
+const sourceNames = {
+  url: "Reglas de URL", page: "Inspección de la página", model: "Modelo",
+  virustotal: "VirusTotal", google_safe_browsing: "Google Safe Browsing",
+  phishtank: "PhishTank", ipqualityscore: "IPQualityScore", unknown: "No disponible"
+};
 function evidenceCard(item) {
   const card = document.createElement("article");
   card.className = "evidence-card " + (item.severity || "info");
@@ -36,13 +40,45 @@ function sourceDescription() {
   if (!remoteData) return "Consultando fuentes disponibles…";
   const reputation = remoteData.reputation;
   const bits = [];
-  if (reputation?.status === "found") bits.push("VirusTotal: " + reputation.malicious + " maliciosas y " + reputation.suspicious + " sospechosas, " + reputation.total + " resultados (ruta sin parámetros)");
+  if (reputation?.status === "found") bits.push("VirusTotal: " + reputation.malicious + " maliciosas y " + reputation.suspicious + " sospechosas, " + reputation.total + " resultados");
   else if (reputation?.status === "not_found") bits.push("VirusTotal: sin informe para la URL consultada");
   else if (reputation?.status === "rate_limited") bits.push("VirusTotal: cuota temporal alcanzada");
   else if (reputation?.status === "not_configured") bits.push("VirusTotal: clave sin configurar");
+  else if (reputation?.status === "not_applicable") bits.push("VirusTotal: no consulta direcciones locales");
+  else if (reputation?.status === "invalid_key") bits.push("VirusTotal: clave rechazada");
   else bits.push("VirusTotal: no disponible");
-  const independentFinding = reputation?.status === "found" && (reputation.malicious > 0 || reputation.suspicious > 0);
+
+  const google = remoteData.google_safe_browsing;
+  if (google?.status === "match") bits.push("Google Safe Browsing: coincidencia " + ((google.threat_types || []).join(", ") || "de amenaza"));
+  else if (google?.status === "no_match") bits.push("Google Safe Browsing: sin coincidencias conocidas");
+  else if (google?.status === "not_configured") bits.push("Google Safe Browsing: clave sin configurar");
+  else if (google?.status === "not_applicable") bits.push("Google Safe Browsing: no consulta direcciones locales");
+  else if (google?.status === "rate_limited") bits.push("Google Safe Browsing: cuota temporal alcanzada");
+  else if (google?.status === "invalid_key") bits.push("Google Safe Browsing: clave rechazada");
+  else bits.push("Google Safe Browsing: no disponible");
+
+  const phishtank = remoteData.phishtank;
+  if (phishtank?.status === "found") bits.push("PhishTank: " + (phishtank.verified && phishtank.valid ? "phishing verificado" : "URL reportada sin verificación completa"));
+  else if (phishtank?.status === "not_found") bits.push("PhishTank: sin reporte");
+  else if (phishtank?.status === "not_configured") bits.push("PhishTank: clave sin configurar");
+  else if (phishtank?.status === "not_applicable") bits.push("PhishTank: no consulta direcciones locales");
+  else if (phishtank?.status === "rate_limited") bits.push("PhishTank: cuota temporal alcanzada");
+  else if (phishtank?.status === "invalid_key") bits.push("PhishTank: clave rechazada");
+  else bits.push("PhishTank: no disponible");
+
+  const ipqs = remoteData.ipqualityscore;
+  if (ipqs?.status === "found") bits.push("IPQualityScore: riesgo " + ipqs.risk_score + "/100" + (ipqs.phishing ? ", phishing" : ipqs.malware ? ", malware" : ipqs.suspicious || ipqs.unsafe ? ", sospechosa" : ""));
+  else if (ipqs?.status === "not_configured") bits.push("IPQualityScore: clave sin configurar");
+  else if (ipqs?.status === "not_applicable") bits.push("IPQualityScore: no consulta direcciones locales");
+  else if (ipqs?.status === "rate_limited") bits.push("IPQualityScore: cuota temporal alcanzada");
+  else if (ipqs?.status === "invalid_key") bits.push("IPQualityScore: clave rechazada");
+  else bits.push("IPQualityScore: no disponible");
+
+  const independentFinding = (reputation?.status === "found" && (reputation.malicious > 0 || reputation.suspicious > 0)) ||
+    google?.status === "match" || phishtank?.status === "found" ||
+    (ipqs?.status === "found" && (ipqs.phishing || ipqs.malware || ipqs.suspicious || ipqs.unsafe || ipqs.risk_score >= 60));
   bits.push(remoteData.model ? "Modelo: salida " + Math.round(remoteData.model.probability * 100) + "/100 (sin calibrar" + (independentFinding ? "" : "; no puntúa por sí sola") + ")" : "Modelo: sin entrenar");
+  bits.push("Privacidad: consultas externas sin credenciales, parámetros ni fragmento");
   return bits.join(" · ");
 }
 function render() {
@@ -56,13 +92,21 @@ function render() {
   $("badge").textContent = view.badge;
   $("status").textContent = view.title;
   $("summary").textContent = view.description;
-  $("score").textContent = result.level === "unknown" ? "Sin puntaje" : result.score + "/100";
+  $("score").textContent = result.level === "unknown" ? "Sin puntaje" :
+    result.signalCount + (result.signalCount === 1 ? " señal" : " señales") + " · " + result.score + "/100";
   $("domain").textContent = result.level === "unknown" ? "No disponible" : new URL(selectedURL).hostname;
   $("detail-domain").textContent = $("domain").textContent;
   $("url").textContent = selectedURL || "Sin URL disponible";
   $("detail-url").textContent = selectedURL || "Sin URL disponible";
   $("detail-score").textContent = $("score").textContent;
-  $("source").textContent = "URL" + (pageSignals?.score ? ", formularios" : "") + (remoteData?.model ? ", modelo" : "") + (remoteData?.reputation?.status === "found" ? ", VirusTotal" : "");
+  const sourcesUsed = ["URL"];
+  if (pageSignals?.score) sourcesUsed.push("formularios");
+  if (remoteData?.model) sourcesUsed.push("modelo");
+  if (remoteData?.reputation && !["not_configured", "not_applicable"].includes(remoteData.reputation.status)) sourcesUsed.push("VirusTotal");
+  if (remoteData?.google_safe_browsing && !["not_configured", "not_applicable"].includes(remoteData.google_safe_browsing.status)) sourcesUsed.push("Google Safe Browsing");
+  if (remoteData?.phishtank && !["not_configured", "not_applicable"].includes(remoteData.phishtank.status)) sourcesUsed.push("PhishTank");
+  if (remoteData?.ipqualityscore && !["not_configured", "not_applicable"].includes(remoteData.ipqualityscore.status)) sourcesUsed.push("IPQualityScore");
+  $("source").textContent = sourcesUsed.join(", ");
   $("source-status").textContent = sourceDescription();
   $("remote-status").textContent = sourceDescription();
   const evidence = result.evidence || result.reasons.map((description) => ({

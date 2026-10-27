@@ -1,5 +1,6 @@
 **
 !Dockerfile
 !server.py
+!threat_sources.py
 !model.py
 !model.json

@@ -7,7 +7,7 @@ Este documento define las evidencias que puede mostrar Escudo Transparente. Una 
 Cada elemento producido por el analizador contiene:
 
 - `id`: identificador estable para pruebas y trazabilidad.
-- `source`: `url`, `page`, `model` o `virustotal`.
+- `source`: `url`, `page`, `model`, `virustotal`, `google_safe_browsing`, `phishtank` o `ipqualityscore`.
 - `title` y `description`: explicación legible para el usuario.
 - `observedValue`: valor que activó la evidencia.
 - `threshold`: condición de referencia.
@@ -16,6 +16,15 @@ Cada elemento producido por el analizador contiene:
 - `contributesToDecision`: indica si modificó el resultado.
 
 `reasons` se conserva como representación textual por compatibilidad, pero `evidence` es la fuente estructurada oficial.
+
+## Regla de decisión
+
+- 0 evidencias activas: verde.
+- Exactamente 1 evidencia débil: rojo preventivo y opción de continuar.
+- 2 o más evidencias activas: rojo crítico y bloqueo preventivo.
+- 1 evidencia con severidad `high`: rojo crítico aunque sea la única señal.
+
+Las evidencias informativas (`contributesToDecision: false`) no cuentan como señales. Los puntos explican el peso de cada evidencia y se muestran para trazabilidad, pero el color se decide por cantidad y severidad, no por intervalos de puntaje.
 
 ## Evidencias utilizadas
 
@@ -33,6 +42,11 @@ Cada elemento producido por el analizador contiene:
 | `VT_MALICIOUS` | VirusTotal | Una detección maliciosa | 15 |
 | `VT_MALICIOUS` | VirusTotal | Dos o más detecciones maliciosas | 30 |
 | `VT_SUSPICIOUS` | VirusTotal | Una o más detecciones sospechosas sin detecciones maliciosas | 10 |
+| `GSB_THREAT` | Google Safe Browsing | Coincidencia con una amenaza conocida | 40 |
+| `PHISHTANK_VERIFIED` | PhishTank | Reportada, verificada y válida | 40 |
+| `PHISHTANK_REPORTED` | PhishTank | Reportada sin verificación completa | 10 |
+| `IPQS_HIGH_RISK` | IPQualityScore | Phishing, malware o `unsafe` con riesgo ≥ 85 | 35 |
+| `IPQS_SUSPICIOUS` | IPQualityScore | `suspicious`, `unsafe` o riesgo ≥ 60 | 15 |
 | `MODEL_MEDIUM` | Modelo | Salida desde 60/100, corroborada por reputación | 5 |
 | `MODEL_HIGH` | Modelo | Salida desde 80/100, corroborada por reputación | 10 |
 
@@ -42,7 +56,7 @@ El modelo sin una alerta independiente se muestra como evidencia informativa con
 
 El popup presenta para cada evidencia: nombre, explicación, fuente, valor observado y aporte. Las alertas en página y correo usan el mismo objeto, con una versión compacta. El estado de cada fuente se informa por separado; una fuente no disponible nunca se interpreta como resultado limpio.
 
-El backend no devuelve la API key. VirusTotal recibe esquema, dominio, puerto y ruta, pero no recibe credenciales, parámetros de consulta ni fragmentos. La respuesta declara este alcance mediante `scope` y `query_parameters_shared`.
+El backend no devuelve ninguna API key. Las fuentes externas reciben esquema, dominio, puerto y ruta, pero no reciben credenciales, parámetros de consulta ni fragmentos. Las direcciones locales o privadas no se consultan. Cada respuesta declara el alcance mediante `scope` y `query_parameters_shared`.
 
 ## Protocolo de validación de claridad
 

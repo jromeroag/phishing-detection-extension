@@ -15,6 +15,11 @@
     CROSS_ORIGIN_FORM: { source: "page", title: "Formulario enviado a otro origen" },
     VT_MALICIOUS: { source: "virustotal", title: "Detecciones maliciosas" },
     VT_SUSPICIOUS: { source: "virustotal", title: "Detecciones sospechosas" },
+    GSB_THREAT: { source: "google_safe_browsing", title: "Amenaza conocida por Google" },
+    PHISHTANK_VERIFIED: { source: "phishtank", title: "Phishing verificado" },
+    PHISHTANK_REPORTED: { source: "phishtank", title: "URL reportada" },
+    IPQS_HIGH_RISK: { source: "ipqualityscore", title: "Reputación de riesgo alto" },
+    IPQS_SUSPICIOUS: { source: "ipqualityscore", title: "Indicadores sospechosos" },
     MODEL_HIGH: { source: "model", title: "Coincidencia alta del modelo" },
     MODEL_MEDIUM: { source: "model", title: "Coincidencia media del modelo" }
   });
@@ -32,12 +37,26 @@
       contributesToDecision: details.contributesToDecision === true
     };
   }
-  function resultFromEvidence(url, evidence, score, level = classifyRisk(score)) {
-    return { level, score, evidence, reasons: evidence.map((item) => item.description), url };
+  function riskProfile(evidence = []) {
+    const active = evidence.filter((item) =>
+      item?.contributesToDecision === true && Number(item.scoreContribution) > 0);
+    return {
+      signalCount: active.length,
+      strongSignal: active.some((item) => item.severity === "high")
+    };
   }
-  function classifyRisk(score) {
-    if (score === 0) return "low";
-    return score <= 25 ? "medium" : "high";
+  function classifyRisk(score, evidence = []) {
+    const profile = riskProfile(evidence);
+    if (score === 0 || profile.signalCount === 0) return "low";
+    if (profile.strongSignal || profile.signalCount >= 2) return "high";
+    return "medium";
+  }
+  function resultFromEvidence(url, evidence, score, level) {
+    const profile = riskProfile(evidence);
+    return {
+      level: level || classifyRisk(score, evidence), score, ...profile, evidence,
+      reasons: evidence.map((item) => item.description), url
+    };
   }
   function analyzeURL(input) {
     let url;
@@ -116,19 +135,18 @@
     if (!extra.score) return extraEvidence.length ? { ...base,
       evidence: [...(base.evidence || []), ...extraEvidence],
       reasons: [...base.reasons, ...extraEvidence.map((item) => item.description)] } : base;
-    // URL y modelo usan rasgos relacionados. Sin evidencia independiente fuerte,
-    // sumar ambos no basta para una alerta roja.
-    const uncorroborated = extra.needsCorroboration && base.score <= 25;
-    const score = Math.min(uncorroborated ? 25 : 100, base.score + extra.score);
+    const score = Math.min(100, base.score + extra.score);
     const baseEvidence = (base.evidence || []).filter((item) => item.id !== "NO_URL_SIGNALS");
     const evidence = [...baseEvidence, ...extraEvidence];
-    return { ...base, score, level: classifyRisk(score), evidence,
+    const profile = riskProfile(evidence);
+    return { ...base, score, level: classifyRisk(score, evidence), ...profile, evidence,
       reasons: evidence.map((item) => item.description) };
   }
   function scoreRemote(data) {
     let score = 0;
     const evidence = [];
-    let corroborated = false;
+    let strongFinding = false;
+    let alertSources = 0;
     const add = (id, points, description, observedValue, threshold, severity, contributes = points > 0) => {
       score += points;
       evidence.push(createEvidence(id, { description, observedValue, threshold,
@@ -136,19 +154,57 @@
     };
     if (data?.reputation?.status === "found") {
       if (data.reputation.malicious >= 2) {
-        corroborated = true;
+        strongFinding = true; alertSources++;
         add("VT_MALICIOUS", 30, "VirusTotal informa " + data.reputation.malicious + " detecciones maliciosas.",
           data.reputation.malicious + " detecciones", "2 o más", "high");
       } else if (data.reputation.malicious === 1) {
+        alertSources++;
         add("VT_MALICIOUS", 15, "VirusTotal informa una detección maliciosa; comprueba el enlace.",
           "1 detección", "1 detección", "medium");
       } else if (data.reputation.suspicious > 0) {
+        alertSources++;
         add("VT_SUSPICIOUS", 10, "VirusTotal informa " + data.reputation.suspicious + " detección(es) sospechosa(s).",
           data.reputation.suspicious + " detección(es)", "1 o más", "medium");
       }
     }
-    const reputationAlert = data?.reputation?.status === "found" &&
-      (data.reputation.malicious > 0 || data.reputation.suspicious > 0);
+    if (data?.google_safe_browsing?.status === "match") {
+      strongFinding = true; alertSources++;
+      const types = data.google_safe_browsing.threat_types?.length
+        ? data.google_safe_browsing.threat_types.join(", ") : "amenaza conocida";
+      add("GSB_THREAT", 40,
+        "Google Safe Browsing relaciona la dirección con una amenaza conocida.",
+        types, "Una coincidencia", "high");
+    }
+    if (data?.phishtank?.status === "found" && data.phishtank.in_database) {
+      alertSources++;
+      if (data.phishtank.verified && data.phishtank.valid) {
+        strongFinding = true;
+        add("PHISHTANK_VERIFIED", 40,
+          "PhishTank informa que la dirección fue verificada como phishing activo.",
+          data.phishtank.phish_id ? "Registro " + data.phishtank.phish_id : "Verificada",
+          "Reportada, verificada y válida", "high");
+      } else {
+        add("PHISHTANK_REPORTED", 10,
+          "La dirección aparece reportada en PhishTank, pero no consta como verificada y válida.",
+          "Reportada", "Verificada y válida", "medium");
+      }
+    }
+    if (data?.ipqualityscore?.status === "found") {
+      const ipqs = data.ipqualityscore;
+      const confirmedType = ipqs.phishing ? "phishing" : ipqs.malware ? "malware" : "riesgo alto";
+      if (ipqs.phishing || ipqs.malware || (ipqs.unsafe && ipqs.risk_score >= 85)) {
+        strongFinding = true; alertSources++;
+        add("IPQS_HIGH_RISK", 35,
+          "IPQualityScore identifica la dirección con riesgo alto o actividad maliciosa.",
+          confirmedType + " · " + ipqs.risk_score + "/100", "85/100 o indicador confirmado", "high");
+      } else if (ipqs.suspicious || ipqs.unsafe || ipqs.risk_score >= 60) {
+        alertSources++;
+        add("IPQS_SUSPICIOUS", 15,
+          "IPQualityScore observa indicadores que requieren revisión.",
+          ipqs.risk_score + "/100", "60/100 o indicador sospechoso", "medium");
+      }
+    }
+    const reputationAlert = alertSources > 0;
     if (data?.model?.probability >= .8) {
       if (reputationAlert) add("MODEL_HIGH", 10, "El modelo también detecta rasgos asociados con phishing.",
         Math.round(data.model.probability * 100) + "/100", "80/100", "medium");
@@ -160,7 +216,9 @@
       else add("MODEL_MEDIUM", 0, "La predicción aislada del modelo no modifica el puntaje hasta validarlo externamente.",
         Math.round(data.model.probability * 100) + "/100", "60/100", "info", false);
     }
-    return { score, evidence, reasons: evidence.map((item) => item.description), needsCorroboration: !corroborated };
+    const corroborated = strongFinding || alertSources >= 2;
+    return { score: Math.min(score, 100), evidence,
+      reasons: evidence.map((item) => item.description), needsCorroboration: !corroborated };
   }
-  root.EscudoAnalyzer = { EVIDENCE_CATALOG, createEvidence, analyzeURL, classifyRisk, combine, scoreRemote };
+  root.EscudoAnalyzer = { EVIDENCE_CATALOG, createEvidence, riskProfile, analyzeURL, classifyRisk, combine, scoreRemote };
 })(typeof globalThis !== "undefined" ? globalThis : this);

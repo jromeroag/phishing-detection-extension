@@ -63,7 +63,11 @@ function updateMessagePanel(link) {
   const info = document.createElement("div"); info.className = "escudo-mail-info"; info.hidden = true;
   const address = document.createElement("p"); address.textContent = "Destino: " + risk.link.href;
   const list = document.createElement("ul");
-  const sourceNames = { url: "URL", page: "Página", model: "Modelo", virustotal: "VirusTotal" };
+  const sourceNames = {
+    url: "URL", page: "Página", model: "Modelo", virustotal: "VirusTotal",
+    google_safe_browsing: "Google Safe Browsing", phishtank: "PhishTank",
+    ipqualityscore: "IPQualityScore"
+  };
   for (const evidence of (risk.result.evidence || risk.result.reasons.map((description) => ({ description })))) {
     const item = document.createElement("li");
     const source = evidence.source ? " Fuente: " + (sourceNames[evidence.source] || evidence.source) + "." : "";
@@ -98,7 +102,13 @@ function markMailLinks() {
       chrome.runtime.sendMessage({ type: "REMOTE_LOOKUP", url: href }, (data) => {
         if (location.href !== view || pending.get(href) !== record || chrome.runtime.lastError || !data || data.error) return;
         const final = EscudoAnalyzer.combine(EscudoAnalyzer.analyzeURL(href), EscudoAnalyzer.scoreRemote(data));
-        const sources = [data.model ? "modelo" : "modelo no disponible", data.reputation?.status === "found" ? "VirusTotal" : "VirusTotal sin informe"].join(", ");
+        const sources = [
+          data.model ? "modelo" : "modelo no disponible",
+          data.reputation?.status === "found" ? "VirusTotal" : "VirusTotal sin hallazgo",
+          data.google_safe_browsing?.status === "match" ? "Google Safe Browsing" : "Google sin hallazgo",
+          data.phishtank?.status === "found" ? "PhishTank" : "PhishTank sin hallazgo",
+          data.ipqualityscore?.status === "found" ? "IPQualityScore" : "IPQualityScore no disponible"
+        ].join(", ");
         record.result = final; record.status = sources;
         record.links.forEach((item) => setBadge(item, href, final, sources));
       });

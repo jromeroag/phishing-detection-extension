@@ -21,6 +21,7 @@ const context = {
   }
 };
 vm.createContext(context);
+vm.runInContext(fs.readFileSync('extension/services/analyzer.js', 'utf8'), context);
 vm.runInContext(fs.readFileSync('extension/scripts/background.js', 'utf8'), context);
 function send(url) {
   return new Promise((resolve) => listener({ type: 'REMOTE_LOOKUP', url }, {}, resolve));
@@ -42,5 +43,23 @@ function send(url) {
   lookup = { reputation: { status: 'not_found' } };
   await send('https://example.net/');
   assert.equal(rules.length, 1);
-  console.log('Bloqueo automático: solo URL exacta confirmada, sin duplicados y sin bloquear evidencia débil');
+  lookup = { google_safe_browsing: { status: 'match', threat_types: ['SOCIAL_ENGINEERING'] } };
+  await send('https://google-confirmed.example/');
+  assert.equal(rules.length, 2);
+  lookup = { phishtank: { status: 'found', in_database: true, verified: true, valid: true } };
+  await send('https://phishtank-confirmed.example/');
+  assert.equal(rules.length, 3);
+  lookup = { ipqualityscore: { status: 'found', risk_score: 92, unsafe: true, phishing: true, malware: false } };
+  await send('https://ipqs-confirmed.example/');
+  assert.equal(rules.length, 4);
+  lookup = { ipqualityscore: { status: 'found', risk_score: 65, unsafe: false, suspicious: true, phishing: false, malware: false } };
+  await send('https://ipqs-weak.example/');
+  assert.equal(rules.length, 4);
+  lookup = {
+    reputation: { status: 'found', malicious: 1, suspicious: 0 },
+    ipqualityscore: { status: 'found', risk_score: 65, unsafe: false, suspicious: true, phishing: false, malware: false }
+  };
+  await send('https://two-weak.example/');
+  assert.equal(rules.length, 5);
+  console.log('Bloqueo automático: una señal fuerte o dos señales débiles; una débil no bloquea');
 })().catch((error) => { console.error(error); process.exitCode = 1; });

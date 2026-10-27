@@ -93,7 +93,7 @@ def evaluate(csv_path, model_path):
     print("Ejemplos legítimos con puntuación del modelo >= 0.8:")
     for p, url in sorted(false_positives, reverse=True)[:10]:
         print(f"  {p:.1%}  {url[:140]}")
-    print("Nota: esta prueba mide solo el modelo, no el semáforo ni VirusTotal. "
+    print("Nota: esta prueba mide solo el modelo, no el semáforo ni las fuentes externas. "
           "PhishStorm se publicó en 2014; compara después con URLs actuales.")
 
 

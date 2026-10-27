@@ -76,7 +76,7 @@ function updatePageAlert(expectedURL = analyzedURL, expectedGeneration = analysi
   const final = EscudoAnalyzer.combine(local, remoteResult);
   const unsafePasswordForm = latestPageResult.evidence?.some((item) => item.id === "HTTP_PASSWORD_FORM") ||
     latestPageResult.reasons.some((reason) => reason.includes("HTTP sin cifrado"));
-  if (final.level === "high" && (local.level === "high" || !remoteResult.needsCorroboration)) {
+  if (final.level === "high") {
     if (final.score > lastWarnedScore) showWarning(expectedURL, final, true);
     return;
   }
@@ -180,7 +180,11 @@ function showWarning(destination, result, onArrival) {
   const banner = document.createElement("div"); banner.className = "heading";
   const wording = document.createElement("div"); wording.append(riskLabel, heading, explanation); banner.append(statusIcon, wording);
   const address = document.createElement("p"); address.className = "address"; address.textContent = destination;
-  const sourceNames = { url: "URL", page: "Página", model: "Modelo", virustotal: "VirusTotal" };
+  const sourceNames = {
+    url: "URL", page: "Página", model: "Modelo", virustotal: "VirusTotal",
+    google_safe_browsing: "Google Safe Browsing", phishtank: "PhishTank",
+    ipqualityscore: "IPQualityScore"
+  };
   const list = document.createElement("ul");
   (result.evidence || result.reasons.map((description) => ({ description }))).forEach((item) => {
     const li = document.createElement("li");

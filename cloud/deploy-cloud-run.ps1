@@ -10,7 +10,11 @@ param(
     [ValidatePattern('^$|^[a-p]{32}$')]
     [string]$ExtensionId = "",
 
-    [switch]$ConfigureVirusTotal
+    [switch]$ConfigureVirusTotal,
+    [switch]$ConfigureGoogleSafeBrowsing,
+    [switch]$ConfigurePhishTank,
+    [switch]$ConfigureIPQualityScore,
+    [switch]$ConfigureAllApis
 )
 
 $ErrorActionPreference = "Stop"
@@ -24,6 +28,43 @@ function Invoke-Gcloud {
     & gcloud @Arguments
     if ($LASTEXITCODE -ne 0) {
         throw "Falló el comando: gcloud $($Arguments -join ' ')"
+    }
+}
+
+function Set-CloudSecret {
+    param(
+        [string]$SecretName,
+        [string]$Prompt
+    )
+    $SecureKey = Read-Host $Prompt -AsSecureString
+    $Pointer = [IntPtr]::Zero
+    $SecretTempPath = $null
+    $PlainKey = $null
+    try {
+        $Pointer = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($SecureKey)
+        $PlainKey = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($Pointer)
+        if ([string]::IsNullOrWhiteSpace($PlainKey)) {
+            throw "$SecretName no puede estar vacía."
+        }
+        $SecretTempPath = [IO.Path]::GetTempFileName()
+        [IO.File]::WriteAllText($SecretTempPath, $PlainKey, [Text.UTF8Encoding]::new($false))
+        & gcloud secrets describe $SecretName --project=$ProjectId *> $null
+        if ($LASTEXITCODE -eq 0) {
+            & gcloud secrets versions add $SecretName --data-file=$SecretTempPath --project=$ProjectId
+        } else {
+            & gcloud secrets create $SecretName --data-file=$SecretTempPath --replication-policy=automatic --project=$ProjectId
+        }
+        if ($LASTEXITCODE -ne 0) {
+            throw "No se pudo guardar $SecretName en Secret Manager."
+        }
+    } finally {
+        if ($Pointer -ne [IntPtr]::Zero) {
+            [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($Pointer)
+        }
+        if ($SecretTempPath -and (Test-Path -LiteralPath $SecretTempPath)) {
+            Remove-Item -LiteralPath $SecretTempPath -Force
+        }
+        $PlainKey = $null
     }
 }
 
@@ -45,6 +86,7 @@ Invoke-Gcloud @(
     "artifactregistry.googleapis.com",
     "secretmanager.googleapis.com",
     "iam.googleapis.com",
+    "safebrowsing.googleapis.com",
     "--project=$ProjectId"
 )
 
@@ -57,50 +99,47 @@ if ($LASTEXITCODE -ne 0) {
     )
 }
 
-if ($ConfigureVirusTotal) {
-    $SecureKey = Read-Host "Ingresa VT_API_KEY (no se mostrará)" -AsSecureString
-    $Pointer = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($SecureKey)
-    $SecretTempPath = $null
-    try {
-        $PlainKey = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($Pointer)
-        if ([string]::IsNullOrWhiteSpace($PlainKey)) {
-            throw "La clave de VirusTotal no puede estar vacía."
-        }
-        $SecretTempPath = [IO.Path]::GetTempFileName()
-        [IO.File]::WriteAllText(
-            $SecretTempPath,
-            $PlainKey,
-            [Text.UTF8Encoding]::new($false)
-        )
-        & gcloud secrets describe VT_API_KEY --project=$ProjectId *> $null
-        if ($LASTEXITCODE -eq 0) {
-            & gcloud secrets versions add VT_API_KEY --data-file=$SecretTempPath --project=$ProjectId
-        } else {
-            & gcloud secrets create VT_API_KEY --data-file=$SecretTempPath --replication-policy=automatic --project=$ProjectId
-        }
-        if ($LASTEXITCODE -ne 0) {
-            throw "No se pudo guardar VT_API_KEY en Secret Manager."
-        }
-    } finally {
-        if ($Pointer -ne [IntPtr]::Zero) {
-            [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($Pointer)
-        }
-        if ($SecretTempPath -and (Test-Path -LiteralPath $SecretTempPath)) {
-            Remove-Item -LiteralPath $SecretTempPath -Force
-        }
-        $PlainKey = $null
+$SecretDefinitions = @(
+    [PSCustomObject]@{
+        Name = "VT_API_KEY"
+        Configure = [bool]($ConfigureAllApis -or $ConfigureVirusTotal)
+        Prompt = "Ingresa VT_API_KEY (no se mostrará)"
+    },
+    [PSCustomObject]@{
+        Name = "GOOGLE_SAFE_BROWSING_API_KEY"
+        Configure = [bool]($ConfigureAllApis -or $ConfigureGoogleSafeBrowsing)
+        Prompt = "Ingresa GOOGLE_SAFE_BROWSING_API_KEY (no se mostrará)"
+    },
+    [PSCustomObject]@{
+        Name = "PHISHTANK_API_KEY"
+        Configure = [bool]($ConfigureAllApis -or $ConfigurePhishTank)
+        Prompt = "Ingresa PHISHTANK_API_KEY (no se mostrará)"
+    },
+    [PSCustomObject]@{
+        Name = "IPQS_API_KEY"
+        Configure = [bool]($ConfigureAllApis -or $ConfigureIPQualityScore)
+        Prompt = "Ingresa IPQS_API_KEY (no se mostrará)"
+    }
+)
+
+foreach ($Definition in $SecretDefinitions) {
+    if ($Definition.Configure) {
+        Set-CloudSecret -SecretName $Definition.Name -Prompt $Definition.Prompt
     }
 }
 
-& gcloud secrets describe VT_API_KEY --project=$ProjectId *> $null
-$UseVirusTotalSecret = $LASTEXITCODE -eq 0
-if ($UseVirusTotalSecret) {
-    Invoke-Gcloud @(
-        "secrets", "add-iam-policy-binding", "VT_API_KEY",
-        "--member=serviceAccount:$RuntimeServiceAccount",
-        "--role=roles/secretmanager.secretAccessor",
-        "--project=$ProjectId"
-    )
+$SecretBindings = @()
+foreach ($Definition in $SecretDefinitions) {
+    & gcloud secrets describe $Definition.Name --project=$ProjectId *> $null
+    if ($LASTEXITCODE -eq 0) {
+        Invoke-Gcloud @(
+            "secrets", "add-iam-policy-binding", $Definition.Name,
+            "--member=serviceAccount:$RuntimeServiceAccount",
+            "--role=roles/secretmanager.secretAccessor",
+            "--project=$ProjectId"
+        )
+        $SecretBindings += "$($Definition.Name)=$($Definition.Name):latest"
+    }
 }
 
 $AllowedOrigin = if ($ExtensionId) {
@@ -126,8 +165,8 @@ $DeployArguments = @(
     "--set-env-vars=ALLOWED_EXTENSION_ORIGINS=$AllowedOrigin",
     "--quiet"
 )
-if ($UseVirusTotalSecret) {
-    $DeployArguments += "--update-secrets=VT_API_KEY=VT_API_KEY:latest"
+if ($SecretBindings.Count -gt 0) {
+    $DeployArguments += "--update-secrets=$($SecretBindings -join ',')"
 }
 
 Write-Host "Construyendo y publicando el backend en Cloud Run..."
@@ -161,4 +200,5 @@ if ($Health.status -ne "ok") {
 Write-Host ""
 Write-Host "Despliegue terminado correctamente." -ForegroundColor Green
 Write-Host "API: $ServiceUrl"
+Write-Host "Fuentes configuradas: VirusTotal=$($Health.virustotal_configured), Google=$($Health.google_safe_browsing_configured), PhishTank=$($Health.phishtank_configured), IPQS=$($Health.ipqualityscore_configured)"
 Write-Host "Ahora abre chrome://extensions, pulsa Actualizar y prueba la extensión."

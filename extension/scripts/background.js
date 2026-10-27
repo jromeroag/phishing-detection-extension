@@ -1,7 +1,10 @@
 // La URL del backend se mantiene en config.js; nunca se guarda aquí una API key.
 // Los bloqueos automáticos son de sesión y se aplican a futuras navegaciones.
 if (typeof importScripts === "function") {
-  importScripts(chrome.runtime.getURL("config.js"));
+  importScripts(
+    chrome.runtime.getURL("config.js"),
+    chrome.runtime.getURL("services/analyzer.js")
+  );
 }
 const API_BASE_URL = globalThis.ESCUDO_CONFIG?.API_BASE_URL || "http://127.0.0.1:8765";
 
@@ -32,6 +35,26 @@ function recordVerifiedURL(url) {
   ruleQueue = job.catch(() => {});
   return job;
 }
+function hasStrongExternalFinding(data) {
+  const virustotal = data?.reputation?.status === "found" && data.reputation.malicious >= 2;
+  const google = data?.google_safe_browsing?.status === "match";
+  const phishtank = data?.phishtank?.status === "found" &&
+    data.phishtank.in_database && data.phishtank.verified && data.phishtank.valid;
+  const ipqs = data?.ipqualityscore?.status === "found" && (
+    data.ipqualityscore.phishing || data.ipqualityscore.malware ||
+    (data.ipqualityscore.unsafe && data.ipqualityscore.risk_score >= 85)
+  );
+  return virustotal || google || phishtank || ipqs;
+}
+function shouldBlockURL(url, data) {
+  // El mismo criterio se usa en el popup y en la página: una señal fuerte
+  // o dos señales activas producen rojo crítico. El respaldo conserva el
+  // bloqueo de coincidencias fuertes si el analizador no pudiera cargarse.
+  if (!globalThis.EscudoAnalyzer) return hasStrongExternalFinding(data);
+  const local = globalThis.EscudoAnalyzer.analyzeURL(url);
+  const remote = globalThis.EscudoAnalyzer.scoreRemote(data);
+  return globalThis.EscudoAnalyzer.combine(local, remote).level === "high";
+}
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message?.type !== "REMOTE_LOOKUP") return;
   try {
@@ -40,11 +63,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       sendResponse({ error: "URL no válida" }); return;
     }
     fetch(analysisEndpoint(message.url), {
-      signal: AbortSignal.timeout(5500)
+      signal: AbortSignal.timeout(10000)
     }).then(async (response) => {
       if (!response.ok) throw new Error("HTTP " + response.status);
       const data = await response.json();
-      if (data?.reputation?.status === "found" && data.reputation.malicious >= 2) {
+      if (shouldBlockURL(message.url, data)) {
         try { await recordVerifiedURL(message.url); }
         catch { /* La alerta de la página aún puede mostrarse sin bloqueo de red. */ }
       }
