@@ -1,5 +1,30 @@
-__pycache__/
-*.py[cod]
+# Credenciales y configuración privada
 .env
 .env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+
+# Editores y sistema operativo
+.vscode/
+.idea/
 .DS_Store
+Thumbs.db
+
+# Distribuciones generadas
+dist/
+*.zip
+
+# Datasets completos (solo se conserva una muestra)
+dataset/*.csv
+!dataset/ejemplo_urls.csv
+
+# Archivos temporales
+*.tmp
+*.temp
+

@@ -1,4 +1,4 @@
-# Pruebas en Chrome o Edge — versión 9.5.1
+# Pruebas en Chrome o Edge — versión 9.6.0
 
 Antes de empezar, guarda una copia de `backend/model.json` y de tu CSV. Abre la carpeta en VS Code y usa el backend local con `python backend/server.py` o el despliegue descrito en `GUIA_GOOGLE_CLOUD.md`. Carga la carpeta `extension/`, pulsa **Actualizar** en `chrome://extensions` y recarga las pestañas abiertas. Para verificar las fuentes externas, configura sus variables como explica `CONFIGURACION_APIS.md`, ya sea en la terminal local o en Secret Manager.
 
@@ -19,6 +19,7 @@ Antes de empezar, guarda una copia de `backend/model.json` y de tu CSV. Abre la 
 | Servidor apagado | Detén `server.py`, abre una URL normal y el popup | Continúa el análisis local y se indica que el servidor no está disponible. |
 | Bloqueo automático confirmado | Con el servidor activo, consulta una URL **de prueba autorizada** que produzca una señal fuerte o al menos dos señales activas; vuelve a abrir exactamente esa URL | La primera consulta muestra aviso rojo después de iniciar la navegación; la segunda navegación se redirige a la página roja de bloqueo. Una ruta o consulta distinta no se bloquea por esa regla. No uses sitios reales ni introduzcas credenciales. |
 | Quitar reglas | En detalles del popup pulsa **Quitar bloqueos de URLs detectadas** | Se eliminan las reglas creadas por la extensión y las de versiones anteriores. |
+| Historial privado | Analiza los tres dominios `.example` de prueba, pulsa **Ver historial local** y usa sus filtros | Aparecen sus dominios y niveles, pero no rutas, parámetros, fragmentos ni credenciales. Se puede eliminar un registro y borrar todo. |
 | Correo | Envía un mensaje de prueba con enlaces benignos y URLs `.example` a Gmail web y Outlook web | Comprueba que un enlace rojo muestra tarjeta dentro del mensaje, que Ver detalles enseña URL y motivos reales, y que pulsar el enlace no lo abre. Comprueba que un correo sin enlaces rojos no muestra tarjeta y el resto sigue utilizable. |
 
 En modo desarrollador, Chrome ofrece `chrome.declarativeNetRequest.testMatchOutcome()` para comprobar si una regla recién instalada coincide con una URL de prueba. El bloqueo automático no necesita un clic manual; puede activarse después de que el backend responda cuando el resultado combinado sea crítico. Guarda captura de las alertas, las razones, el estado de cada fuente y la salida del evaluador externo para presentar resultados verificables.

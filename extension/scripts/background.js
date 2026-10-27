@@ -3,7 +3,8 @@
 if (typeof importScripts === "function") {
   importScripts(
     chrome.runtime.getURL("config.js"),
-    chrome.runtime.getURL("services/analyzer.js")
+    chrome.runtime.getURL("services/analyzer.js"),
+    chrome.runtime.getURL("services/history.js")
   );
 }
 const API_BASE_URL = globalThis.ESCUDO_CONFIG?.API_BASE_URL || "http://127.0.0.1:8765";
@@ -56,6 +57,12 @@ function shouldBlockURL(url, data) {
   return globalThis.EscudoAnalyzer.combine(local, remote).level === "high";
 }
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message?.type === "HISTORY_RECORD") {
+    globalThis.EscudoHistory?.saveAnalysis(message.url, message.result)
+      .then((entry) => sendResponse({ saved: Boolean(entry) }))
+      .catch(() => sendResponse({ saved: false }));
+    return true;
+  }
   if (message?.type !== "REMOTE_LOOKUP") return;
   try {
     const url = new URL(message.url);
@@ -71,8 +78,21 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         try { await recordVerifiedURL(message.url); }
         catch { /* La alerta de la página aún puede mostrarse sin bloqueo de red. */ }
       }
+      if (globalThis.EscudoAnalyzer && globalThis.EscudoHistory) {
+        const local = globalThis.EscudoAnalyzer.analyzeURL(message.url);
+        const remote = globalThis.EscudoAnalyzer.scoreRemote(data);
+        const combined = globalThis.EscudoAnalyzer.combine(local, remote);
+        await globalThis.EscudoHistory.saveAnalysis(message.url, combined, data);
+      }
       sendResponse(data);
-    }).catch(() => sendResponse({ error: "Servicio de análisis no disponible" }));
+    }).catch(async () => {
+      if (globalThis.EscudoAnalyzer && globalThis.EscudoHistory) {
+        await globalThis.EscudoHistory.saveAnalysis(
+          message.url, globalThis.EscudoAnalyzer.analyzeURL(message.url)
+        );
+      }
+      sendResponse({ error: "Servicio de análisis no disponible" });
+    });
   } catch { sendResponse({ error: "URL no válida" }); }
   return true;
 });

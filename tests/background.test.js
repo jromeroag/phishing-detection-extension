@@ -2,11 +2,16 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
 const rules = [];
+const storageData = {};
 let lookup = { reputation: { status: 'found', malicious: 2, suspicious: 0 } };
 let listener;
 let requestedEndpoint;
 const chrome = {
   runtime: { onMessage: { addListener(callback) { listener = callback; } } },
+  storage: { local: {
+    get(defaults, callback) { callback({ ...defaults, ...storageData }); },
+    set(values, callback) { Object.assign(storageData, values); callback?.(); }
+  } },
   declarativeNetRequest: {
     async getSessionRules() { return [...rules]; },
     async updateSessionRules({ addRules }) { rules.push(...addRules); }
@@ -22,6 +27,7 @@ const context = {
 };
 vm.createContext(context);
 vm.runInContext(fs.readFileSync('extension/services/analyzer.js', 'utf8'), context);
+vm.runInContext(fs.readFileSync('extension/services/history.js', 'utf8'), context);
 vm.runInContext(fs.readFileSync('extension/scripts/background.js', 'utf8'), context);
 function send(url) {
   return new Promise((resolve) => listener({ type: 'REMOTE_LOOKUP', url }, {}, resolve));
@@ -61,5 +67,10 @@ function send(url) {
   };
   await send('https://two-weak.example/');
   assert.equal(rules.length, 5);
+  const history = storageData.escudoAnalysisHistoryV1;
+  assert.equal(history.length, 8);
+  assert.equal(history.some((entry) => entry.domain === 'example.com'), true);
+  assert.equal(history.some((entry) => entry.level === 'high'), true);
+  assert.doesNotMatch(JSON.stringify(history), /login\?x=1|x=1&y=2/);
   console.log('Bloqueo automático: una señal fuerte o dos señales débiles; una débil no bloquea');
 })().catch((error) => { console.error(error); process.exitCode = 1; });

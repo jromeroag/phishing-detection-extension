@@ -8,6 +8,7 @@ let remoteFinished = false;
 let notificationShown = false;
 let analyzedURL = "";
 let analysisGeneration = 0;
+let lastHistorySignature = "";
 if (window === window.top) {
   analyzeCurrentPage();
   // popstate/hashchange cubren Atrás, Adelante y cambios de fragmento. El
@@ -33,6 +34,7 @@ function analyzeCurrentPage() {
   inspected = false;
   remoteFinished = false;
   notificationShown = false;
+  lastHistorySignature = "";
   document.getElementById("escudo-warning-root")?.remove();
 
   const stillCurrent = () => generation === analysisGeneration &&
@@ -74,6 +76,7 @@ function updatePageAlert(expectedURL = analyzedURL, expectedGeneration = analysi
       expectedURL !== analyzedURL || location.href !== expectedURL) return;
   const local = EscudoAnalyzer.combine(EscudoAnalyzer.analyzeURL(expectedURL), latestPageResult);
   const final = EscudoAnalyzer.combine(local, remoteResult);
+  if (remoteFinished) recordPageHistory(expectedURL, final);
   const unsafePasswordForm = latestPageResult.evidence?.some((item) => item.id === "HTTP_PASSWORD_FORM") ||
     latestPageResult.reasons.some((reason) => reason.includes("HTTP sin cifrado"));
   if (final.level === "high") {
@@ -93,6 +96,17 @@ function updatePageAlert(expectedURL = analyzedURL, expectedGeneration = analysi
     notificationShown = true;
     showWarning(expectedURL, final, true);
   }
+}
+
+function recordPageHistory(url, result) {
+  if (!["low", "medium", "high"].includes(result.level)) return;
+  const signature = [url, result.level, result.score, result.signalCount].join("|");
+  if (signature === lastHistorySignature) return;
+  lastHistorySignature = signature;
+  chrome.runtime.sendMessage({ type: "HISTORY_RECORD", url, result }, () => {
+    // Leer lastError evita advertencias si el service worker se reinicia.
+    void chrome.runtime.lastError;
+  });
 }
 
 // Se revisa la estructura del formulario, nunca los valores escritos.

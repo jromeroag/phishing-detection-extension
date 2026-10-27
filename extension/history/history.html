@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Historial · Escudo Transparente</title>
+  <link rel="stylesheet" href="history.css">
+</head>
+<body>
+  <main>
+    <header class="page-header">
+      <div class="brand">
+        <img src="../icons/escudo-48.png" width="48" height="48" alt="">
+        <div><p>Escudo Transparente</p><h1>Historial local</h1></div>
+      </div>
+      <p class="privacy">Solo se guarda el dominio en este navegador. No se almacenan URL completas, contraseñas, parámetros, fragmentos ni contenido de páginas o correos.</p>
+    </header>
+
+    <section class="controls" aria-label="Filtros del historial">
+      <label>Resultado
+        <select id="filter">
+          <option value="all">Todos</option>
+          <option value="low">Verdes</option>
+          <option value="medium">Rojos preventivos</option>
+          <option value="high">Rojos críticos</option>
+          <option value="incomplete">Análisis incompletos</option>
+        </select>
+      </label>
+      <label>Buscar dominio
+        <input id="search" type="search" placeholder="ejemplo.com" autocomplete="off" spellcheck="false">
+      </label>
+      <button id="clear" class="danger" type="button">Borrar todo</button>
+    </section>
+
+    <p id="summary" class="summary" role="status"></p>
+    <section id="history-list" class="history-list" aria-live="polite"></section>
+    <section id="empty" class="empty" hidden>
+      <h2>No hay análisis para mostrar</h2>
+      <p>Los dominios aparecerán aquí cuando la extensión analice una página o un enlace.</p>
+    </section>
+    <footer>Máximo 100 registros · Eliminación automática después de 7 días</footer>
+  </main>
+  <script src="../services/history.js"></script>
+  <script src="history-page.js"></script>
+</body>
+</html>

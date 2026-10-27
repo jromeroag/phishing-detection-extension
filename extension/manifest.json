@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Escudo Transparente",
-  "version": "9.5.1",
+  "version": "9.6.0",
   "description": "Prototipo de alertas explicables para enlaces sospechosos.",
   "icons": {
     "16": "icons/escudo-16.png",
@@ -12,7 +12,8 @@
   "permissions": [
     "activeTab",
     "tabs",
-    "declarativeNetRequest"
+    "declarativeNetRequest",
+    "storage"
   ],
   "host_permissions": [
     "http://127.0.0.1:8765/*"

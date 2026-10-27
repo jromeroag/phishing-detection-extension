@@ -56,6 +56,8 @@ El modelo sin una alerta independiente se muestra como evidencia informativa con
 
 El popup presenta para cada evidencia: nombre, explicación, fuente, valor observado y aporte. Las alertas en página y correo usan el mismo objeto, con una versión compacta. El estado de cada fuente se informa por separado; una fuente no disponible nunca se interpreta como resultado limpio.
 
+El historial conserva una copia resumida de hasta seis evidencias por dominio. Solo guarda el nombre del dominio, nivel, cantidad de señales, puntaje, fecha y estados de las fuentes. No guarda la URL completa ni `observedValue`, evitando conservar rutas, credenciales, parámetros o fragmentos.
+
 El backend no devuelve ninguna API key. Las fuentes externas reciben esquema, dominio, puerto y ruta, pero no reciben credenciales, parámetros de consulta ni fragmentos. Las direcciones locales o privadas no se consultan. Cada respuesta declara el alcance mediante `scope` y `query_parameters_shared`.
 
 ## Protocolo de validación de claridad

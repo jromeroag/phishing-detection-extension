@@ -1,0 +1,5 @@
+# Solo para entrenar el modelo candidato con backend/train_v2.py.
+# El servidor de producción utiliza la biblioteca estándar de Python.
+numpy
+scikit-learn
+

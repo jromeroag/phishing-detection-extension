@@ -6,5 +6,6 @@
    internamente para distinguir una advertencia que permite continuar. */
 .risk.medium,.risk.high{background:#fff1f2;border-color:#f3b6bd}
 .risk.medium .badge,.risk.high .badge{background:#ffd7dc;color:#a61a2a}
+.history-link{display:block;margin-top:9px;padding:10px 12px;border:1px solid #b9d8ff;border-radius:9px;background:#fff;color:#0757be;text-align:center;font-weight:700;text-decoration:none}.history-link:hover{background:#eef6ff}
 .evidence-list{display:grid;gap:8px;margin-bottom:14px}.evidence-card{padding:10px;border:1px solid #dce7f5;border-left:4px solid #7890aa;border-radius:8px;background:#fff;white-space:pre-line}.evidence-card.medium,.evidence-card.high{border-left-color:#c92838}.evidence-card strong{display:block}.evidence-card .evidence-meta{display:block;margin-top:4px;color:#596d88;font-size:12px}
 .evidence-summary{margin:0 0 12px}.evidence-summary h2{font-size:14px;margin:0 0 7px}.compact-evidence{padding:10px;border:1px solid #dce7f5;border-left:4px solid #7890aa;border-radius:8px;background:#fff;white-space:pre-line}.compact-evidence.medium,.compact-evidence.high{border-left-color:#c92838}.compact-evidence+.compact-evidence{margin-top:7px}

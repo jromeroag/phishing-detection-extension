@@ -19,7 +19,7 @@ from urllib.parse import urlencode, urlsplit
 from urllib.request import Request, urlopen
 
 
-USER_AGENT = "EscudoTransparente/9.5.1 (academic phishing-defense prototype)"
+USER_AGENT = "EscudoTransparente/9.6.0 (academic phishing-defense prototype)"
 CACHE = {}
 INFLIGHT = {}
 REQUEST_TIMES = {}

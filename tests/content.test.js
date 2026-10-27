@@ -15,6 +15,7 @@ function createHarness(initialHref, { queued = false, response = { reputation: {
   const documentEvents = {};
   const intervalCallbacks = [];
   const requests = [];
+  const historyRecords = [];
   const pending = [];
   const created = [];
   const overlays = [];
@@ -59,6 +60,11 @@ function createHarness(initialHref, { queued = false, response = { reputation: {
     runtime: {
       lastError: null,
       sendMessage(message, callback) {
+        if (message.type === 'HISTORY_RECORD') {
+          historyRecords.push(message);
+          callback?.({ saved: true });
+          return;
+        }
         requests.push(message.url);
         if (queued) pending.push({ url: message.url, callback });
         else callback(response);
@@ -75,7 +81,7 @@ function createHarness(initialHref, { queued = false, response = { reputation: {
   vm.runInContext(analyzerCode, context);
   vm.runInContext(contentCode, context);
   return {
-    context, location, requests, pending, overlays, created, windowEvents, documentEvents,
+    context, location, requests, historyRecords, pending, overlays, created, windowEvents, documentEvents,
     tick() { intervalCallbacks.forEach((callback) => callback()); },
     headings() { return created.filter((element) => element.tag === 'h2').map((element) => element.textContent); },
     warningCount() { return overlays.length; },
@@ -89,6 +95,8 @@ const traditional = createHarness(traditionalURL, {
   response: { model: { probability: .96 }, reputation: { status: 'not_found' } }
 });
 assert.deepEqual(traditional.requests, [traditionalURL]);
+assert.equal(traditional.historyRecords.length, 1);
+assert.equal(traditional.historyRecords[0].result.level, 'low');
 assert.equal(traditional.warningCount(), 1);
 assert.match(traditional.headings().at(-1), /Sin señales evidentes/);
 

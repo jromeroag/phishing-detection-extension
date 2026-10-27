@@ -17,7 +17,7 @@ from threat_sources import lookup_all, lookup_virustotal
 
 MODEL_PATH = Path(__file__).resolve().parent / "model.json"
 MODEL = json.loads(MODEL_PATH.read_text(encoding="utf-8")) if MODEL_PATH.exists() else None
-SERVICE_VERSION = "9.5.1"
+SERVICE_VERSION = "9.6.0"
 DEFAULT_ALLOWED_EXTENSION_ORIGINS = "chrome-extension://*,moz-extension://*"
 
 

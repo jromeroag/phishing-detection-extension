@@ -1,4 +1,4 @@
-# Configuración de fuentes de amenazas — versión 9.5.1
+# Configuración de fuentes de amenazas — versión 9.6.0
 
 Escudo Transparente puede consultar cuatro fuentes externas. Todas son opcionales e independientes: si una no está configurada o no responde, las demás y las reglas locales continúan funcionando.
 
