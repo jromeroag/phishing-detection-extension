@@ -15,8 +15,17 @@ const strongSignal = analyzer.createEvidence('TEST_STRONG', {
 });
 assert.equal(analyzer.classifyRisk(0, []), 'low');
 assert.equal(analyzer.classifyRisk(15, [weakSignal]), 'medium');
-assert.equal(analyzer.classifyRisk(2, [weakSignal, secondWeakSignal]), 'high');
+assert.equal(analyzer.classifyRisk(2, [weakSignal, secondWeakSignal]), 'medium');
+assert.equal(analyzer.classifyRisk(3, [weakSignal, secondWeakSignal, weakSignal]), 'high');
 assert.equal(analyzer.classifyRisk(1, [strongSignal]), 'high');
+const inactiveSignal = analyzer.createEvidence('TEST_INACTIVE', {
+  scoreContribution: 20, severity: 'high', contributesToDecision: false
+});
+const zeroPointSignal = analyzer.createEvidence('TEST_ZERO', {
+  scoreContribution: 0, severity: 'high', contributesToDecision: true
+});
+assert.equal(analyzer.classifyRisk(20, [inactiveSignal, zeroPointSignal]), 'low');
+assert.equal(analyzer.classifyRisk(1, [weakSignal, inactiveSignal, zeroPointSignal]), 'medium');
 assert.equal(analyzer.analyzeURL('http://127.0.0.1:8000/').score, 0);
 assert.equal(analyzer.analyzeURL('https://example.com/login').score, 0);
 const oneLocalSignal = analyzer.analyzeURL('https://xn--fiq228c.example/');
@@ -26,7 +35,7 @@ assert.equal(oneLocalSignal.level, 'medium');
 const twoLocalSignals = analyzer.analyzeURL('https://a-b-c-login.example/');
 assert.equal(twoLocalSignals.score, 20);
 assert.equal(twoLocalSignals.signalCount, 2);
-assert.equal(twoLocalSignals.level, 'high');
+assert.equal(twoLocalSignals.level, 'medium');
 const fakeBcp = analyzer.analyzeURL('https://alerta-viabcp.com/en');
 assert.equal(fakeBcp.level, 'high');
 assert.equal(fakeBcp.score, 45);
@@ -68,14 +77,14 @@ const google = analyzer.combine(analyzer.analyzeURL('https://www.google.com/webh
 assert.equal(google.score, 0);
 assert.equal(google.level, 'low');
 const oneEngine = analyzer.scoreRemote({reputation:{status:'found',malicious:1,suspicious:0}, model:{probability:.96}});
-assert.equal(analyzer.combine(analyzer.analyzeURL('https://example.com/'), oneEngine).level, 'high');
+assert.equal(analyzer.combine(analyzer.analyzeURL('https://example.com/'), oneEngine).level, 'medium');
 const belowThreshold = analyzer.scoreRemote({reputation:{status:'found',malicious:1,suspicious:0}, model:{probability:.59}});
 assert.equal(belowThreshold.score, 15);
 assert.doesNotMatch(belowThreshold.reasons.join(' '), /modelo también/i);
 const atThreshold = analyzer.scoreRemote({reputation:{status:'found',malicious:1,suspicious:0}, model:{probability:.60}});
 assert.equal(atThreshold.score, 20);
 assert.match(atThreshold.reasons.join(' '), /modelo también/i);
-assert.equal(analyzer.combine(analyzer.analyzeURL('https://example.com/'), atThreshold).level, 'high');
+assert.equal(analyzer.combine(analyzer.analyzeURL('https://example.com/'), atThreshold).level, 'medium');
 const twoEngines = analyzer.scoreRemote({reputation:{status:'found',malicious:2,suspicious:0}, model:null});
 assert.equal(twoEngines.evidence[0].id, 'VT_MALICIOUS');
 assert.equal(twoEngines.evidence[0].source, 'virustotal');
@@ -110,7 +119,7 @@ const twoIndependentWeak = analyzer.scoreRemote({
   model:null
 });
 assert.equal(twoIndependentWeak.needsCorroboration, false);
-assert.equal(analyzer.combine(analyzer.analyzeURL('https://example.com/'), twoIndependentWeak).level, 'high');
+assert.equal(analyzer.combine(analyzer.analyzeURL('https://example.com/'), twoIndependentWeak).level, 'medium');
 assert.equal(analyzer.combine(analyzer.analyzeURL('https://usuario@example.com/'), modelOnly).level, 'high');
 assert.equal(modelOnly.evidence[0].contributesToDecision, false);
 assert.equal(modelOnly.evidence[0].scoreContribution, 0);

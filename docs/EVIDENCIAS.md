@@ -20,11 +20,11 @@ Cada elemento producido por el analizador contiene:
 ## Regla de decisión
 
 - 0 evidencias activas: verde.
-- Exactamente 1 evidencia débil: rojo preventivo y opción de continuar.
-- 2 o más evidencias activas: rojo crítico y bloqueo preventivo.
+- 1 o 2 evidencias débiles: amarillo preventivo y opción de volver o continuar, sin regla de bloqueo.
+- 3 o más evidencias activas: rojo crítico y bloqueo preventivo.
 - 1 evidencia con severidad `high`: rojo crítico aunque sea la única señal.
 
-Las evidencias informativas (`contributesToDecision: false`) no cuentan como señales. Los puntos explican el peso de cada evidencia y se muestran para trazabilidad, pero el color se decide por cantidad y severidad, no por intervalos de puntaje.
+Solo cuentan las evidencias con `contributesToDecision === true` y `scoreContribution > 0`. Una señal fuerte tiene `severity === "high"`; las demás señales activas son débiles. Los puntos explican el peso de cada evidencia, pero el color se decide por cantidad y severidad, no por intervalos de puntaje.
 
 ## Evidencias utilizadas
 

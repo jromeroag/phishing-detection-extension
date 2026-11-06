@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" role="img" aria-label="Alerta amarilla">
+  <path fill="#bd8200" d="M48 4 94 86H2z"/>
+  <path fill="#fff" d="M44 31h8l-2 33h-4z"/>
+  <circle cx="48" cy="75" r="5" fill="#fff"/>
+</svg>

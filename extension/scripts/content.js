@@ -140,8 +140,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 });
 
 // Al hacer clic en un enlace rojo, detiene el clic antes de navegar.
-// Los indicios preventivos se muestran en rojo, pero solo el riesgo alto
-// detiene el clic. Así una señal débil no bloquea por sí sola.
+// Los indicios preventivos se muestran en amarillo y no detienen el clic.
 document.addEventListener("click", (event) => {
   const link = event.target instanceof Element ? event.target.closest("a[href]") : null;
   if (!link || event.defaultPrevented || event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey || link.hasAttribute("download")) return;
@@ -163,14 +162,14 @@ function showWarning(destination, result, onArrival) {
   const shadow = host.attachShadow({ mode: "closed" });
   const style = document.createElement("style");
   style.textContent = ":host{all:initial} .shade{position:fixed;inset:0;background:#101b2acc;display:grid;place-items:center;padding:20px;font:16px/1.5 system-ui,Arial,sans-serif}.box{width:min(100%,480px);background:white;color:#192437;border-radius:18px;padding:26px;box-shadow:0 20px 70px #0006}.heading{display:flex;align-items:center;gap:16px}.status-icon{width:72px;height:72px;flex:none}.box h2{color:#b42828;margin:0 0 8px}.box h3{font-size:16px;margin:16px 0 6px}.heading p{margin:0}.address{overflow-wrap:anywhere;background:#f3f5f7;padding:10px;border-radius:8px}.recommendations{background:#fff3f3;border-left:4px solid #cf2032;border-radius:8px;padding:10px 14px}.recommendations ul{margin:6px 0;padding-left:20px}button{cursor:pointer;border:0;border-radius:8px;padding:11px 15px;font:inherit}#back{background:#183960;color:#fff}#continue{background:#fff;color:#9f1725;border:1px solid #c92a38}.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px}.small{font-size:12px;color:#556}";
-  style.textContent += ".shade.low{background:transparent;display:block;pointer-events:none}.shade.medium{background:#7d1018cc}.shade.high{background:#b61b24}.box.low{position:fixed;right:18px;top:18px;width:min(350px,calc(100vw - 76px));padding:16px;pointer-events:auto;border:1px solid #a5ddba}.box.low .status-icon{width:48px;height:48px}.box.low h2{color:#087a45}.box.medium{background:#fff5f6;border:2px solid #d52a39}.box.medium #back{background:#b61b24;color:#fff}.box.medium #continue{background:#fff;color:#9f1725;border:1px solid #c92a38;font-weight:700}.box.high{box-shadow:none}.high #back{background:#b61b24}.low #continue{background:#13844b;color:white}.risk-label{display:inline-block;margin:0 0 5px;padding:3px 10px;border-radius:999px;font-size:13px;font-weight:700}.risk-label.low{background:#d9f5e2;color:#087a45}.risk-label.medium,.risk-label.high{background:#ffd7dc;color:#a61a2a}.close{float:right;background:transparent;padding:0 5px}";
+  style.textContent += ".shade.low{background:transparent;display:block;pointer-events:none}.shade.medium{background:#614900aa}.shade.high{background:#b61b24}.box.low{position:fixed;right:18px;top:18px;width:min(350px,calc(100vw - 76px));padding:16px;pointer-events:auto;border:1px solid #a5ddba}.box.low .status-icon{width:48px;height:48px}.box.low h2{color:#087a45}.box.medium{background:#fff9e8;border:2px solid #d5a622}.box.medium h2{color:#745000}.box.medium #back{background:#805500;color:#fff}.box.medium #continue{background:#fff;color:#745000;border:1px solid #bd8200;font-weight:700}.box.high{box-shadow:none}.high #back{background:#b61b24}.low #continue{background:#13844b;color:white}.risk-label{display:inline-block;margin:0 0 5px;padding:3px 10px;border-radius:999px;font-size:13px;font-weight:700}.risk-label.low{background:#d9f5e2;color:#087a45}.risk-label.medium{background:#ffebad;color:#745000}.risk-label.high{background:#ffd7dc;color:#a61a2a}.close{float:right;background:transparent;padding:0 5px}";
   const shade = document.createElement("div"); shade.className = "shade";
   const box = document.createElement("div"); box.className = "box " + result.level; box.setAttribute("role", "alertdialog"); box.setAttribute("aria-modal", "true");
   if (isLow) box.setAttribute("aria-modal", "false");
   const riskLabel = document.createElement("span"); riskLabel.className = "risk-label " + result.level;
-  riskLabel.textContent = result.level === "low" ? "Verde" : "Rojo";
-  const heading = document.createElement("h2"); heading.textContent = result.level === "high" ? (onArrival ? "Sitio con riesgo alto" : "Enlace de riesgo alto bloqueado") : result.level === "medium" ? "Riesgo detectado" : "Sin señales evidentes";
-  const explanation = document.createElement("p"); explanation.textContent = result.level === "high" ? "Se encontraron evidencias suficientes para aplicar un bloqueo preventivo:" : result.level === "medium" ? "Se encontró una señal sospechosa. Revisa la información antes de decidir si continúas:" : "No se observaron señales en las fuentes disponibles. Esto no garantiza que la página sea segura.";
+  riskLabel.textContent = result.level === "low" ? "Verde" : result.level === "medium" ? "Amarillo" : "Rojo";
+  const heading = document.createElement("h2"); heading.textContent = result.level === "high" ? (onArrival ? "Sitio con riesgo alto" : "Enlace de riesgo alto bloqueado") : result.level === "medium" ? "Alerta preventiva" : "Sin señales evidentes";
+  const explanation = document.createElement("p"); explanation.textContent = result.level === "high" ? "Se encontraron evidencias suficientes para aplicar un bloqueo preventivo:" : result.level === "medium" ? "Se encontraron una o dos señales débiles. Revisa la información antes de decidir si continúas:" : "No se observaron señales en las fuentes disponibles. Esto no garantiza que la página sea segura.";
   // SVG dentro de la alerta: permanece visible aunque la página limite imágenes externas.
   const ns = "http://www.w3.org/2000/svg";
   const statusIcon = document.createElementNS(ns, "svg");
@@ -179,7 +178,7 @@ function showWarning(destination, result, onArrival) {
   statusIcon.setAttribute("aria-hidden", "true");
   const emblem = document.createElementNS(ns, "path");
   emblem.setAttribute("d", result.level === "low" ? "M48 2a46 46 0 1 1 0 92a46 46 0 0 1 0-92z" : "M29 4h38l25 25v38L67 92H29L4 67V29z");
-  emblem.setAttribute("fill", result.level === "low" ? "#13844b" : "#cf2032");
+  emblem.setAttribute("fill", result.level === "low" ? "#13844b" : result.level === "medium" ? "#bd8200" : "#cf2032");
   const mark = document.createElementNS(ns, "path");
   mark.setAttribute("d", isLow ? "M23 48l16 16 34-36" : result.level === "high" ? "M48 26v34" : "M48 36v28");
   mark.setAttribute("fill", "none");

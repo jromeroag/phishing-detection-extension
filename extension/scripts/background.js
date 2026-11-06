@@ -49,7 +49,7 @@ function hasStrongExternalFinding(data) {
 }
 function shouldBlockURL(url, data) {
   // El mismo criterio se usa en el popup y en la página: una señal fuerte
-  // o dos señales activas producen rojo crítico. El respaldo conserva el
+  // o tres señales activas producen rojo crítico. El respaldo conserva el
   // bloqueo de coincidencias fuertes si el analizador no pudiera cargarse.
   if (!globalThis.EscudoAnalyzer) return hasStrongExternalFinding(data);
   const local = globalThis.EscudoAnalyzer.analyzeURL(url);

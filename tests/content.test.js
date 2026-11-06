@@ -139,20 +139,27 @@ assert.equal(recommendations.children[1].children.length, 3);
 red.created.find((element) => element.id === 'back').listeners.click();
 assert.equal(red.wentBack(), 1);
 
-// Una señal preventiva se presenta en rojo, permite volver o continuar y no se confunde con bloqueo crítico.
+// Una señal preventiva se presenta en amarillo, permite volver o continuar.
 const preventive = createHarness('https://example.com/', {
   response: { reputation: { status: 'found', malicious: 1, suspicious: 0 } }
 });
-assert.match(preventive.headings().at(-1), /Riesgo detectado/);
+assert.match(preventive.headings().at(-1), /Alerta preventiva/);
 assert.match(preventive.created.find((element) => element.tag === 'li').textContent, /VirusTotal/);
 const preventiveBox = preventive.created.find((element) => element.className === 'box medium');
 const preventiveLabel = preventive.created.find((element) => element.className === 'risk-label medium');
 const preventiveActions = preventive.created.find((element) => element.className === 'actions');
 assert.ok(preventiveBox);
-assert.equal(preventiveLabel.textContent, 'Rojo');
+assert.equal(preventiveLabel.textContent, 'Amarillo');
 assert.equal(preventiveActions.children.some((element) => element.id === 'back'), true);
 assert.equal(preventiveActions.children.some((element) => element.id === 'continue'), true);
 assert.match(preventiveActions.children.find((element) => element.id === 'continue').textContent, /responsabilidad/);
 
+const twoSignals = createHarness('https://a-b-c-login.example/', {
+  response: { reputation: { status: 'not_found' } }
+});
+assert.equal(twoSignals.historyRecords[0].result.level, 'medium');
+assert.equal(twoSignals.created.find((element) => element.className === 'risk-label medium').textContent, 'Amarillo');
+assert.equal(twoSignals.created.find((element) => element.className === 'actions').children.some((element) => element.id === 'continue'), true);
+
 console.log('Navegación: carga automática, SPA, deduplicación y respuestas atrasadas correctas');
-console.log('Avisos existentes: verde, rojo preventivo con continuación y rojo crítico sin continuar');
+console.log('Avisos existentes: verde, amarillo preventivo con continuación y rojo crítico sin continuar');

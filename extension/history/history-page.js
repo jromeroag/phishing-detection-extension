@@ -1,7 +1,7 @@
 const $ = (id) => document.getElementById(id);
 const levelText = {
   low: "Verde · Sin señales",
-  medium: "Rojo preventivo",
+  medium: "Amarillo preventivo",
   high: "Rojo crítico"
 };
 const verificationText = {

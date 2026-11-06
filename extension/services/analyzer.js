@@ -47,9 +47,9 @@
   }
   function classifyRisk(score, evidence = []) {
     const profile = riskProfile(evidence);
-    if (score === 0 || profile.signalCount === 0) return "low";
-    if (profile.strongSignal || profile.signalCount >= 2) return "high";
-    return "medium";
+    if (profile.signalCount === 0) return "low";
+    if (!profile.strongSignal && profile.signalCount <= 2) return "medium";
+    return "high";
   }
   function resultFromEvidence(url, evidence, score, level) {
     const profile = riskProfile(evidence);
@@ -75,8 +75,10 @@
     const evidence = [];
     const add = (id, points, description, observedValue, threshold, severity = "medium") => {
       score += points;
-      evidence.push(createEvidence(id, { description, observedValue, threshold,
-        scoreContribution: points, severity, contributesToDecision: points > 0 }));
+      evidence.push(createEvidence(id, {
+        description, observedValue, threshold,
+        scoreContribution: points, severity, contributesToDecision: points > 0
+      }));
     };
     const isDomainOrSubdomain = (hostname, domain) => hostname === domain || hostname.endsWith("." + domain);
     const protectedBrands = [
@@ -132,15 +134,19 @@
     if (base.level === "unknown") return base;
     if (!extra) return base;
     const extraEvidence = evidenceFromLegacy(extra);
-    if (!extra.score) return extraEvidence.length ? { ...base,
+    if (!extra.score) return extraEvidence.length ? {
+      ...base,
       evidence: [...(base.evidence || []), ...extraEvidence],
-      reasons: [...base.reasons, ...extraEvidence.map((item) => item.description)] } : base;
+      reasons: [...base.reasons, ...extraEvidence.map((item) => item.description)]
+    } : base;
     const score = Math.min(100, base.score + extra.score);
     const baseEvidence = (base.evidence || []).filter((item) => item.id !== "NO_URL_SIGNALS");
     const evidence = [...baseEvidence, ...extraEvidence];
     const profile = riskProfile(evidence);
-    return { ...base, score, level: classifyRisk(score, evidence), ...profile, evidence,
-      reasons: evidence.map((item) => item.description) };
+    return {
+      ...base, score, level: classifyRisk(score, evidence), ...profile, evidence,
+      reasons: evidence.map((item) => item.description)
+    };
   }
   function scoreRemote(data) {
     let score = 0;
@@ -149,8 +155,10 @@
     let alertSources = 0;
     const add = (id, points, description, observedValue, threshold, severity, contributes = points > 0) => {
       score += points;
-      evidence.push(createEvidence(id, { description, observedValue, threshold,
-        scoreContribution: points, severity, contributesToDecision: contributes }));
+      evidence.push(createEvidence(id, {
+        description, observedValue, threshold,
+        scoreContribution: points, severity, contributesToDecision: contributes
+      }));
     };
     if (data?.reputation?.status === "found") {
       if (data.reputation.malicious >= 2) {
@@ -217,8 +225,10 @@
         Math.round(data.model.probability * 100) + "/100", "60/100", "info", false);
     }
     const corroborated = strongFinding || alertSources >= 2;
-    return { score: Math.min(score, 100), evidence,
-      reasons: evidence.map((item) => item.description), needsCorroboration: !corroborated };
+    return {
+      score: Math.min(score, 100), evidence,
+      reasons: evidence.map((item) => item.description), needsCorroboration: !corroborated
+    };
   }
   root.EscudoAnalyzer = { EVIDENCE_CATALOG, createEvidence, riskProfile, analyzeURL, classifyRisk, combine, scoreRemote };
 })(typeof globalThis !== "undefined" ? globalThis : this);

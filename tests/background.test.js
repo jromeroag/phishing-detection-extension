@@ -66,11 +66,18 @@ function send(url) {
     ipqualityscore: { status: 'found', risk_score: 65, unsafe: false, suspicious: true, phishing: false, malware: false }
   };
   await send('https://two-weak.example/');
+  assert.equal(rules.length, 4);
+  lookup = {
+    reputation: { status: 'found', malicious: 1, suspicious: 0 },
+    ipqualityscore: { status: 'found', risk_score: 65, unsafe: false, suspicious: true, phishing: false, malware: false },
+    model: { probability: .8 }
+  };
+  await send('https://three-weak.example/');
   assert.equal(rules.length, 5);
   const history = storageData.escudoAnalysisHistoryV1;
-  assert.equal(history.length, 8);
+  assert.equal(history.length, 9);
   assert.equal(history.some((entry) => entry.domain === 'example.com'), true);
   assert.equal(history.some((entry) => entry.level === 'high'), true);
   assert.doesNotMatch(JSON.stringify(history), /login\?x=1|x=1&y=2/);
-  console.log('Bloqueo automático: una señal fuerte o dos señales débiles; una débil no bloquea');
+  console.log('Bloqueo automático: una señal fuerte o tres señales activas; dos débiles no bloquean');
 })().catch((error) => { console.error(error); process.exitCode = 1; });

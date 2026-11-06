@@ -19,7 +19,7 @@ elements.get('filter').value = 'all';
 const now = Date.now();
 const storageData = { escudoAnalysisHistoryV1: [
   { schemaVersion: 1, id: 'red', timestamp: now, domain: 'riesgo.example', level: 'high',
-    signalCount: 2, score: 30, strongSignal: false, verification: 'partial',
+    signalCount: 3, score: 30, strongSignal: false, verification: 'partial',
     providers: { virustotal: 'found', google_safe_browsing: 'unavailable', phishtank: 'not_found', ipqualityscore: 'unavailable' },
     evidence: [{ title: 'Señal', description: 'Descripción segura.', contributesToDecision: true }] },
   { schemaVersion: 1, id: 'green', timestamp: now - 1000, domain: 'limpio.example', level: 'low',

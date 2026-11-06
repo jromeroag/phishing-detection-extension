@@ -76,9 +76,16 @@ chrome.runtime.sendMessage = (_message, callback) => callback({
 });
 element('candidate').value = 'https://example.com/revisar';
 element('check-form').listeners.submit({ preventDefault() {} });
-assert.equal(element('badge').textContent, 'Rojo');
-assert.match(element('status').textContent, /Riesgo detectado/);
-assert.match(element('symbol').src, /status-red\.svg$/);
+assert.equal(element('badge').textContent, 'Amarillo');
+assert.match(element('status').textContent, /Alerta preventiva/);
+assert.match(element('symbol').src, /status-yellow\.svg$/);
+chrome.runtime.sendMessage = (_message, callback) => callback({
+  model: null, reputation: { status: 'not_found' }
+});
+element('candidate').value = 'https://a-b-c-login.example/';
+element('check-form').listeners.submit({ preventDefault() {} });
+assert.equal(element('score').textContent, '2 señales · 20/100');
+assert.equal(element('badge').textContent, 'Amarillo');
 chrome.runtime.sendMessage = (_message, callback) => callback({
   model: { probability: .71 }, reputation: { status: 'not_found' }
 });
