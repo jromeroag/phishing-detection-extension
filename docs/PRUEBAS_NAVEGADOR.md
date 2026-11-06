@@ -1,4 +1,4 @@
-# Pruebas en Chrome o Edge — versión 9.6.0
+# Pruebas en Chrome o Edge — versión 9.6.1
 
 Antes de empezar, guarda una copia de `backend/model.json` y de tu CSV. Abre la carpeta en VS Code y usa el backend local con `python backend/server.py` o el despliegue descrito en `GUIA_GOOGLE_CLOUD.md`. Carga la carpeta `extension/`, pulsa **Actualizar** en `chrome://extensions` y recarga las pestañas abiertas. Para verificar las fuentes externas, configura sus variables como explica `CONFIGURACION_APIS.md`, ya sea en la terminal local o en Secret Manager.
 

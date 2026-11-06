@@ -1,4 +1,4 @@
-# Escudo Transparente — versión 9.6.0
+# Escudo Transparente — versión 9.6.1
 
 Prototipo funcional de extensión para Chrome y Edge con icono de escudo. La interfaz utiliza tres colores: verde sin señales activas, amarillo con una o dos señales débiles y rojo con una señal fuerte o tres o más señales activas. El amarillo permite volver o continuar; el rojo mantiene el bloqueo preventivo. Revisa automáticamente características de la URL y formularios de contraseña de la página; marca enlaces renderizados en Gmail y Outlook; conserva un historial local limitado; y consulta un modelo entrenado, VirusTotal, Google Safe Browsing, PhishTank e IPQualityScore mediante un backend local o publicado en Google Cloud Run. **Todas las fuentes externas son opcionales e independientes. Solo son resultados reales las fuentes que aparezcan como disponibles.** Una URL sin señales no es una URL segura.
 
