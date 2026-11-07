@@ -12,6 +12,8 @@ function node(tag = 'div', id = '') {
   };
 }
 const elements = new Map();
+const errors = [];
+let storageListener;
 for (const id of ['filter', 'search', 'clear', 'summary', 'history-list', 'empty']) {
   elements.set(id, node(id === 'filter' ? 'select' : id === 'search' ? 'input' : 'div', id));
 }
@@ -33,14 +35,15 @@ const chrome = {
       get(defaults, callback) { callback({ ...defaults, ...storageData }); },
       set(values, callback) { Object.assign(storageData, values); callback?.(); }
     },
-    onChanged: { addListener() {} }
+    onChanged: { addListener(callback) { storageListener = callback; } }
   }
 };
 const document = {
   getElementById(id) { return elements.get(id); },
   createElement(tag) { return node(tag); }
 };
-const context = { URL, Date, Intl, Promise, document, chrome, confirm: () => true };
+const context = { URL, Date, Intl, Promise, document, chrome, confirm: () => true,
+  console: { error(...args) { errors.push(args); } } };
 vm.createContext(context);
 vm.runInContext(fs.readFileSync('extension/services/history.js', 'utf8'), context);
 vm.runInContext(fs.readFileSync('extension/history/history-page.js', 'utf8'), context);
@@ -66,5 +69,10 @@ const settle = () => new Promise((resolve) => setImmediate(resolve));
   await settle();
   assert.equal(storageData.escudoAnalysisHistoryV1.length, 0);
   assert.equal(elements.get('empty').hidden, false);
+  context.EscudoHistory.getEntries = async () => { throw new Error('storage unavailable'); };
+  storageListener({ [context.EscudoHistory.STORAGE_KEY]: {} }, 'local');
+  await settle();
+  assert.match(elements.get('summary').textContent, /No se pudo cargar/);
+  assert.equal(errors.length, 1);
   console.log('Interfaz de historial: renderizado, filtros, búsqueda y borrado correctos');
 })().catch((error) => { console.error(error); process.exitCode = 1; });

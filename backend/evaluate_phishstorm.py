@@ -12,6 +12,7 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 from model import probability
+from path_security import resolve_dataset_csv
 
 
 def read_rows(path):
@@ -101,6 +102,6 @@ if __name__ == "__main__":
     if len(sys.argv) != 2:
         raise SystemExit("Uso: python backend/evaluate_phishstorm.py dataset/urlset.csv")
     try:
-        evaluate(Path(sys.argv[1]), Path(__file__).with_name("model.json"))
+        evaluate(resolve_dataset_csv(sys.argv[1]), Path(__file__).with_name("model.json"))
     except (OSError, ValueError, KeyError) as exc:
         raise SystemExit("Error: " + str(exc)) from exc

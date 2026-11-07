@@ -12,6 +12,17 @@ from collections import Counter
 from pathlib import Path
 from urllib.parse import urlsplit
 
+from path_security import resolve_dataset_csv
+
+if __name__ == "__main__":
+    if len(sys.argv) != 3:
+        raise SystemExit("Uso: python backend/train_v2.py dataset/urls.csv dataset/validacion_nueva.csv")
+    try:
+        cli_original_path = resolve_dataset_csv(sys.argv[1])
+        cli_new_path = resolve_dataset_csv(sys.argv[2])
+    except (OSError, ValueError) as exc:
+        raise SystemExit("Error: " + str(exc)) from exc
+
 try:
     import numpy as np
     from sklearn.linear_model import LogisticRegression
@@ -123,6 +134,5 @@ def train(original_path, new_path):
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 3: raise SystemExit("Uso: python backend/train_v2.py dataset/urls.csv dataset/validacion_nueva.csv")
-    try: print(json.dumps(train(Path(sys.argv[1]), Path(sys.argv[2])), indent=2, ensure_ascii=False))
+    try: print(json.dumps(train(cli_original_path, cli_new_path), indent=2, ensure_ascii=False))
     except (OSError, ValueError) as exc: raise SystemExit("Error: " + str(exc)) from exc

@@ -118,6 +118,11 @@ async function loadHistory() {
   renderHistory();
 }
 
+function reportHistoryError(error) {
+  $("summary").textContent = "No se pudo cargar el historial local.";
+  console.error("No se pudo cargar el historial local.", error);
+}
+
 $("filter").addEventListener("change", renderHistory);
 $("search").addEventListener("input", renderHistory);
 $("clear").addEventListener("click", async () => {
@@ -126,6 +131,8 @@ $("clear").addEventListener("click", async () => {
   await loadHistory();
 });
 chrome.storage.onChanged.addListener((changes, area) => {
-  if (area === "local" && changes[EscudoHistory.STORAGE_KEY]) loadHistory();
+  if (area === "local" && changes[EscudoHistory.STORAGE_KEY]) {
+    void loadHistory().catch(reportHistoryError);
+  }
 });
-loadHistory();
+void loadHistory().catch(reportHistoryError);

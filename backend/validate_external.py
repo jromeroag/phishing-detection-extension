@@ -13,6 +13,7 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 from model import probability
+from path_security import resolve_dataset_csv
 
 
 def csv_rows(path):
@@ -122,6 +123,8 @@ if __name__ == "__main__":
     if len(sys.argv) not in (2, 3):
         raise SystemExit("Uso: python backend/validate_external.py dataset/validacion.csv [dataset/urls.csv]")
     try:
-        print(json.dumps(evaluate(Path(sys.argv[1]), Path(sys.argv[2]) if len(sys.argv) == 3 else None), indent=2, ensure_ascii=False))
+        validation_path = resolve_dataset_csv(sys.argv[1])
+        training_path = resolve_dataset_csv(sys.argv[2]) if len(sys.argv) == 3 else None
+        print(json.dumps(evaluate(validation_path, training_path), indent=2, ensure_ascii=False))
     except (OSError, ValueError, KeyError) as exc:
         raise SystemExit("Error: " + str(exc)) from exc

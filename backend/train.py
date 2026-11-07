@@ -8,10 +8,15 @@ from collections import defaultdict
 from pathlib import Path
 from urllib.parse import urlsplit
 from model import FEATURES, features, probability
+from path_security import resolve_dataset_csv
 
 ROOT = Path(__file__).resolve().parent
 if len(sys.argv) != 2:
     raise SystemExit("Uso: python backend/train.py dataset/urls.csv (columnas url,label)")
+try:
+    csv_path = resolve_dataset_csv(sys.argv[1])
+except (OSError, ValueError) as exc:
+    raise SystemExit("Error: " + str(exc)) from exc
 
 def load_rows(path, encoding):
     rows = []
@@ -40,7 +45,7 @@ def load_rows(path, encoding):
 
 for encoding in ("utf-8-sig", "cp1252", "latin-1"):
     try:
-        rows = load_rows(sys.argv[1], encoding)
+        rows = load_rows(csv_path, encoding)
         print(f"CSV leído con codificación {encoding}: {len(rows)} URLs válidas.")
         break
     except UnicodeDecodeError:
